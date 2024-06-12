@@ -1,11 +1,9 @@
-import copy
 from typing import List, Tuple
 
 import torch
+from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule
-from torch import Tensor
-from torch.nn import Identity
-from torchvision.models import resnet50
+from torch import Tensor, nn
 
 from lightly.loss import BarlowTwinsLoss
 from lightly.models.modules import BarlowTwinsProjectionHead
@@ -15,26 +13,55 @@ from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler
 
+from methods import get_backbone
+
 
 class BarlowTwins(LightningModule):
-    def __init__(self, batch_size_per_device: int, num_classes: int) -> None:
+    def __init__(self, backbone: str, batch_size_per_device: int, in_channels: int, num_classes: int,
+                 last_backbone_channel: int = None):
         super().__init__()
         self.save_hyperparameters()
         self.batch_size_per_device = batch_size_per_device
 
-        resnet = resnet50()
-        resnet.fc = Identity()  # Ignore classification head
-        self.backbone = resnet
-        self.projection_head = BarlowTwinsProjectionHead()
+        if backbone == "default":
+            backbone = "resnet50"
+            print_rank_zero(f"Using default backbone: {backbone}")
+        model = get_backbone(backbone, in_channels=in_channels)
+
+        # saving some parameters by deleting unused model parts
+        if hasattr(model, "fc"):
+            del model.fc
+        if hasattr(model, "classifier"):
+            del model.classifier
+
+        self.backbone = model
+        feat_out = model.feature_info[-1]["num_chs"]
+
+        if last_backbone_channel is None:
+            self.backbone_out = nn.Identity()
+            last_backbone_channel = feat_out
+        else:
+            # this module could also reflect the backbone structure better
+            self.backbone_out = nn.Sequential(
+                nn.Conv2d(feat_out, last_backbone_channel, 1),
+
+            )
+
+        self.global_pool = nn.AdaptiveAvgPool2d(1)
+
+        self.projection_head = BarlowTwinsProjectionHead(last_backbone_channel)
         self.criterion = BarlowTwinsLoss(lambda_param=5e-3, gather_distributed=True)
 
-        self.online_classifier = OnlineLinearClassifier(num_classes=num_classes)
+        self.online_classifier = OnlineLinearClassifier(last_backbone_channel, num_classes=num_classes)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.backbone(x)
+        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
+        features = self.backbone(x)[-1]  # model returns all intermediate results, only use last one
+        features = self.backbone_out(features)
+        return self.global_pool(features)
 
     def training_step(
-        self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
+            self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
     ) -> Tensor:
         # Forward pass and loss calculation.
         views, targets = batch[0], batch[1]
@@ -55,7 +82,7 @@ class BarlowTwins(LightningModule):
         return loss + cls_loss
 
     def validation_step(
-        self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
+            self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
     ) -> Tensor:
         images, targets = batch[0], batch[1]
         features = self.forward(images).flatten(start_dim=1)

@@ -22,9 +22,7 @@ import knn_eval
 import linear_eval
 from methods import simclr, vicreg, barlowtwins
 
-parser = ArgumentParser("ImageNet ResNet50 Benchmarks")
-parser.add_argument("--train-dir", type=Path, default="/datasets/imagenet/train")
-parser.add_argument("--val-dir", type=Path, default="/datasets/imagenet/val")
+parser = ArgumentParser("MMEarth Benchmark")
 parser.add_argument("--log-dir", type=Path, default="benchmark_logs")
 parser.add_argument("--batch-size-per-device", type=int, default=128)
 parser.add_argument("--epochs", type=int, default=100)
@@ -35,7 +33,8 @@ parser.add_argument("--precision", type=str, default="16-mixed")
 parser.add_argument("--ckpt-path", type=Path, default=None)
 parser.add_argument("--compile-model", action="store_true")
 parser.add_argument("--methods", type=str, nargs="+")
-parser.add_argument("--backbone", type=str, default="resnet50") #TODO
+parser.add_argument("--backbone", type=str, default="default")
+parser.add_argument("--last_backbone_channel", type=int, default=None)
 parser.add_argument("--num-classes", type=int, default=1000)
 parser.add_argument("--skip-knn-eval", action="store_true")
 parser.add_argument("--skip-linear-eval", action="store_true")
@@ -49,8 +48,6 @@ METHODS = {
 
 
 def main(
-        train_dir: Path,
-        val_dir: Path,
         log_dir: Path,
         batch_size_per_device: int,
         epochs: int,
@@ -61,6 +58,7 @@ def main(
         compile_model: bool,
         methods: Union[Sequence[str], None],
         backbone: str,
+        last_backbone_channel: int,
         num_classes: int,
         skip_knn_eval: bool,
         skip_linear_eval: bool,
@@ -71,12 +69,16 @@ def main(
 
     method_names = methods or METHODS.keys()
 
+    # This might change for EO
+    in_channels = 3
+
     for method in method_names:
         method_dir = (
                 log_dir / method / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         ).resolve()
         model = METHODS[method]["model"](
-            batch_size_per_device=batch_size_per_device, num_classes=num_classes
+            backbone, batch_size_per_device=batch_size_per_device, num_classes=num_classes, in_channels=in_channels,
+            last_backbone_channel=last_backbone_channel
         )
 
         if compile_model and hasattr(torch, "compile"):
@@ -92,8 +94,6 @@ def main(
             pretrain(
                 model=model,
                 method=method,
-                train_dir=train_dir,
-                val_dir=val_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 epochs=epochs,
@@ -110,8 +110,6 @@ def main(
             knn_eval.knn_eval(
                 model=model,
                 num_classes=num_classes,
-                train_dir=train_dir,
-                val_dir=val_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 num_workers=num_workers,
@@ -125,8 +123,6 @@ def main(
             linear_eval.linear_eval(
                 model=model,
                 num_classes=num_classes,
-                train_dir=train_dir,
-                val_dir=val_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 num_workers=num_workers,
@@ -141,8 +137,6 @@ def main(
             finetune_eval.finetune_eval(
                 model=model,
                 num_classes=num_classes,
-                train_dir=train_dir,
-                val_dir=val_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 num_workers=num_workers,
@@ -155,8 +149,6 @@ def main(
 def pretrain(
         model: LightningModule,
         method: str,
-        train_dir: Path,
-        val_dir: Path,
         log_dir: Path,
         batch_size_per_device: int,
         epochs: int,
@@ -181,15 +173,11 @@ def pretrain(
         shuffle=True,
         num_workers=num_workers,
         drop_last=True,
-        persistent_workers=False,
+        persistent_workers=True,
     )
 
     # Setup validation data.
-    val_transform = T.Compose(
-        [
-            T.ToTensor(),
-        ]
-    )
+    val_transform = T.Compose([T.ToTensor(), ])
     val_dataset = torchvision.datasets.CIFAR10(
         "datasets/cifar10", download=True, transform=val_transform, train=False
     )
@@ -199,7 +187,7 @@ def pretrain(
         batch_size=batch_size_per_device,
         shuffle=False,
         num_workers=num_workers,
-        persistent_workers=False,
+        persistent_workers=True,
     )
 
     # Train model.
@@ -217,9 +205,10 @@ def pretrain(
         ],
         logger=TensorBoardLogger(save_dir=str(log_dir), name="pretrain"),
         precision=precision,
-        strategy="ddp_find_unused_parameters_true",
+        # strategy="ddp_find_unused_parameters_true",
         sync_batchnorm=accelerator != "cpu",  # Sync batchnorm is not supported on CPU.
         num_sanity_val_steps=0,
+        # val_check_interval=1, #TODO
     )
 
     trainer.fit(
