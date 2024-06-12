@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Sequence, Union
 
 import torch
-import torchvision
+import wandb
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
@@ -78,6 +78,8 @@ def main(
         method_dir = (
                 log_dir / method / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         ).resolve()
+        method_dir.mkdir(exist_ok=True)
+
         model = METHODS[method]["model"](
             backbone, batch_size_per_device=batch_size_per_device, num_classes=num_classes, in_channels=in_channels,
             last_backbone_channel=last_backbone_channel
@@ -218,7 +220,7 @@ def pretrain(
         # strategy="ddp_find_unused_parameters_true",
         sync_batchnorm=accelerator != "cpu",  # Sync batchnorm is not supported on CPU.
         num_sanity_val_steps=0,
-        check_val_every_n_epoch=1, #TODO
+        check_val_every_n_epoch=1,  # TODO
     )
 
     trainer.fit(
@@ -229,6 +231,7 @@ def pretrain(
     )
     for metric in ["val_online_cls_top1", "val_online_cls_top5"]:
         print_rank_zero(f"max {metric}: {max(metric_callback.val_metrics[metric])}")
+    wandb.finish()
 
 
 if __name__ == "__main__":

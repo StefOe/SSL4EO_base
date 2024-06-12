@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import wandb
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
@@ -138,3 +139,4 @@ def finetune_eval(
         print_rank_zero(
             f"max finetune {metric}: {max(metric_callback.val_metrics[metric])}"
         )
+    wandb.finish()
