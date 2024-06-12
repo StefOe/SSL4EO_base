@@ -15,6 +15,7 @@ from pytorch_lightning.callbacks import (
 from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
+from torchvision.datasets import CIFAR10
 
 import finetune_eval
 import knn_eval
@@ -164,7 +165,7 @@ def pretrain(
     # Setup training data.
     train_transform = METHODS[method]["transform"]
     # train_dataset = LightlyDataset(input_dir=str(train_dir), transform=train_transform)
-    train_dataset = torchvision.datasets.CIFAR10(
+    train_dataset = CIFAR10(
         "datasets/cifar10", download=True, transform=train_transform
     )
     # train_dataset = LightlyDataset(input_dir=str(train_dir), transform=train_transform)
@@ -178,8 +179,11 @@ def pretrain(
     )
 
     # Setup validation data.
-    val_transform = T.Compose([T.ToTensor(), ])
-    val_dataset = torchvision.datasets.CIFAR10(
+    val_transform = T.Compose([
+        T.ToTensor(),
+        # T.Normalize(mean=IMAGENET_NORMALIZE["mean"], std=IMAGENET_NORMALIZE["std"]),
+    ])
+    val_dataset = CIFAR10(
         "datasets/cifar10", download=True, transform=val_transform, train=False
     )
     # val_dataset = LightlyDataset(input_dir=str(val_dir), transform=val_transform)
@@ -205,7 +209,7 @@ def pretrain(
             metric_callback,
         ],
         logger=WandbLogger(
-            save_dir=str(log_dir), name=f"{method}_pretrain", project="ssl4eo",
+            save_dir=str(log_dir), name=f"pretrain", project="ssl4eo",
             # log model config
             config=model.hparams
         ),
@@ -214,7 +218,7 @@ def pretrain(
         # strategy="ddp_find_unused_parameters_true",
         sync_batchnorm=accelerator != "cpu",  # Sync batchnorm is not supported on CPU.
         num_sanity_val_steps=0,
-        # val_check_interval=1, #TODO
+        check_val_every_n_epoch=1, #TODO
     )
 
     trainer.fit(

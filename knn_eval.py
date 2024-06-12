@@ -2,21 +2,17 @@ from pathlib import Path
 
 import torch
 from pytorch_lightning import LightningModule, Trainer
-from pytorch_lightning.callbacks import DeviceStatsMonitor
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
 
-from lightly.data import LightlyDataset
-from lightly.transforms.utils import IMAGENET_NORMALIZE
 from lightly.utils.benchmarking import KNNClassifier, MetricCallback
 from lightly.utils.dist import print_rank_zero
+from torchvision.datasets import CIFAR10
 
 
 def knn_eval(
     model: LightningModule,
-    train_dir: Path,
-    val_dir: Path,
     log_dir: Path,
     batch_size_per_device: int,
     num_workers: int,
@@ -40,28 +36,34 @@ def knn_eval(
     # Setup training data.
     transform = T.Compose(
         [
-            T.Resize(256),
-            T.CenterCrop(224),
             T.ToTensor(),
-            T.Normalize(mean=IMAGENET_NORMALIZE["mean"], std=IMAGENET_NORMALIZE["std"]),
+            # T.Normalize(mean=IMAGENET_NORMALIZE["mean"], std=IMAGENET_NORMALIZE["std"]),
         ]
     )
-    train_dataset = LightlyDataset(input_dir=str(train_dir), transform=transform)
+    train_dataset = CIFAR10(
+        "datasets/cifar10", download=True, transform=transform
+    )
+    # train_dataset = LightlyDataset(input_dir=str(train_dir), transform=train_transform)
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size_per_device,
-        shuffle=False,
+        shuffle=True,
         num_workers=num_workers,
-        drop_last=False,
+        drop_last=True,
+        persistent_workers=True,
     )
 
     # Setup validation data.
-    val_dataset = LightlyDataset(input_dir=str(val_dir), transform=transform)
+    val_dataset = CIFAR10(
+        "datasets/cifar10", download=True, transform=transform, train=False
+    )
+    # val_dataset = LightlyDataset(input_dir=str(val_dir), transform=val_transform)
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=batch_size_per_device,
         shuffle=False,
         num_workers=num_workers,
+        persistent_workers=True,
     )
 
     classifier = KNNClassifier(
@@ -76,12 +78,15 @@ def knn_eval(
         max_epochs=1,
         accelerator=accelerator,
         devices=devices,
-        logger=TensorBoardLogger(save_dir=str(log_dir), name="knn_eval"),
+        logger=WandbLogger(
+            save_dir=log_dir / "knn_eval", name="knn_eval", project="ssl4eo",
+            # log model config
+            config=model.hparams
+        ),
         callbacks=[
-            DeviceStatsMonitor(),
             metric_callback,
         ],
-        strategy="ddp_find_unused_parameters_true",
+        # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
     )
     trainer.fit(

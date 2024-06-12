@@ -33,6 +33,7 @@ class MAE(LightningModule):
             print_rank_zero(f"Using default backbone: {backbone}")
 
         vit = get_backbone(backbone, in_channels=in_channels, feautures_only=False)
+        self.last_backbone_channel = vit.embed_dim
 
         decoder_embed_dim = 512
         self.mask_ratio = 0.75
