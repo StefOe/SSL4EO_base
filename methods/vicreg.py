@@ -1,11 +1,6 @@
 from typing import List, Tuple
 
 import torch
-from pytorch_lightning import LightningModule
-from torch import Tensor
-from torch.nn import Identity
-from torchvision.models import resnet50, resnet18
-
 from lightly.loss.vicreg_loss import VICRegLoss
 from lightly.models.modules.heads import VICRegProjectionHead
 from lightly.models.utils import get_weight_decay_parameters
@@ -13,27 +8,33 @@ from lightly.transforms.vicreg_transform import VICRegTransform
 from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler
+from torch import Tensor
+
+from methods.base import EOModule
 
 
-class VICReg(LightningModule):
-    def __init__(self, batch_size_per_device: int, num_classes: int) -> None:
-        super().__init__()
+class VICReg(EOModule):
+    default_backbone = "resnet50"
+
+    def __init__(self, backbone: str, batch_size_per_device: int, in_channels: int, num_classes: int,
+                 last_backbone_channel: int = None):
         self.save_hyperparameters()
+        self.hparams["method"] = self.__class__.__name__
         self.batch_size_per_device = batch_size_per_device
+        super().__init__(backbone, in_channels, last_backbone_channel)
 
-        resnet = resnet18()
-        resnet.fc = Identity()  # Ignore classification head
-        self.backbone = resnet
-        self.projection_head = VICRegProjectionHead(512, num_layers=2)
+        self.projection_head = VICRegProjectionHead(self.last_backbone_channel, num_layers=2)
         self.criterion = VICRegLoss()
 
-        self.online_classifier = OnlineLinearClassifier(512, num_classes=num_classes)
+        self.online_classifier = OnlineLinearClassifier(self.last_backbone_channel, num_classes=num_classes)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.backbone(x)
+        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
+        features = self.backbone(x)
+        return self.global_pool(features)
 
     def training_step(
-        self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
+            self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
     ) -> Tensor:
         views, targets = batch[0], batch[1]
         features = self.forward(torch.cat(views)).flatten(start_dim=1)
@@ -53,7 +54,7 @@ class VICReg(LightningModule):
         return loss + cls_loss
 
     def validation_step(
-        self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
+            self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
     ) -> Tensor:
         images, targets = batch[0], batch[1]
         features = self.forward(images).flatten(start_dim=1)
@@ -95,9 +96,9 @@ class VICReg(LightningModule):
             "scheduler": CosineWarmupScheduler(
                 optimizer=optimizer,
                 warmup_epochs=(
-                    self.trainer.estimated_stepping_batches
-                    / self.trainer.max_epochs
-                    * 10
+                        self.trainer.estimated_stepping_batches
+                        / self.trainer.max_epochs
+                        * 10
                 ),
                 max_epochs=self.trainer.estimated_stepping_batches,
                 end_value=0.01,  # Scale base learning rate from 0.2 to 0.002.

@@ -4,9 +4,9 @@ from torch import nn
 from torch import Tensor
 
 
-def get_backbone(name: str, in_channels: int):
+def get_backbone(name: str, in_channels: int, feautures_only: bool = True):
     try:
-        model = create_model(name, pretrained=False, features_only=True)
+        model = create_model(name, pretrained=False, features_only=feautures_only)
     except RuntimeError:
         print_rank_zero(f"Could not find '{name}' backbone or it does not support 'features_only' mode, quitting now")
         quit()

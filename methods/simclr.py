@@ -2,11 +2,6 @@ import math
 from typing import List, Tuple
 
 import torch
-from pytorch_lightning import LightningModule
-from torch import Tensor
-from torch.nn import Identity
-from torchvision.models import resnet50
-
 from lightly.loss.ntx_ent_loss import NTXentLoss
 from lightly.models.modules import SimCLRProjectionHead
 from lightly.models.utils import get_weight_decay_parameters
@@ -14,27 +9,33 @@ from lightly.transforms import SimCLRTransform
 from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler
+from torch import Tensor
+
+from methods.base import EOModule
 
 
-class SimCLR(LightningModule):
-    def __init__(self, batch_size_per_device: int, num_classes: int) -> None:
-        super().__init__()
+class SimCLR(EOModule):
+    default_backbone = "resnet50"
+
+    def __init__(self, backbone: str, batch_size_per_device: int, in_channels: int, num_classes: int,
+                 last_backbone_channel: int = None):
         self.save_hyperparameters()
+        self.hparams["method"] = self.__class__.__name__
         self.batch_size_per_device = batch_size_per_device
+        super().__init__(backbone, in_channels, last_backbone_channel)
 
-        resnet = resnet50()
-        resnet.fc = Identity()  # Ignore classification head
-        self.backbone = resnet
-        self.projection_head = SimCLRProjectionHead()
+        self.projection_head = SimCLRProjectionHead(self.last_backbone_channel)
         self.criterion = NTXentLoss(temperature=0.1, gather_distributed=True)
 
-        self.online_classifier = OnlineLinearClassifier(num_classes=num_classes)
+        self.online_classifier = OnlineLinearClassifier(self.last_backbone_channel, num_classes=num_classes)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.backbone(x)
+        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
+        features = self.backbone(x)
+        return self.global_pool(features)
 
     def training_step(
-        self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
+            self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
     ) -> Tensor:
         views, targets = batch[0], batch[1]
         features = self.forward(torch.cat(views)).flatten(start_dim=1)
@@ -52,7 +53,7 @@ class SimCLR(LightningModule):
         return loss + cls_loss
 
     def validation_step(
-        self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
+            self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
     ) -> Tensor:
         images, targets = batch[0], batch[1]
         features = self.forward(images).flatten(start_dim=1)

@@ -9,18 +9,17 @@ from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import (
-    DeviceStatsMonitor,
     EarlyStopping,
     LearningRateMonitor,
 )
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
 
 import finetune_eval
 import knn_eval
 import linear_eval
-from methods import simclr, vicreg, barlowtwins
+from methods import simclr, vicreg, barlowtwins, byol, mae
 
 parser = ArgumentParser("MMEarth Benchmark")
 parser.add_argument("--log-dir", type=Path, default="benchmark_logs")
@@ -34,8 +33,8 @@ parser.add_argument("--ckpt-path", type=Path, default=None)
 parser.add_argument("--compile-model", action="store_true")
 parser.add_argument("--methods", type=str, nargs="+")
 parser.add_argument("--backbone", type=str, default="default")
-parser.add_argument("--last_backbone_channel", type=int, default=None)
-parser.add_argument("--num-classes", type=int, default=1000)
+parser.add_argument("--last-backbone-channel", type=int, default=None)
+parser.add_argument("--num-classes", type=int, default=10)
 parser.add_argument("--skip-knn-eval", action="store_true")
 parser.add_argument("--skip-linear-eval", action="store_true")
 parser.add_argument("--skip-finetune-eval", action="store_true")
@@ -43,7 +42,9 @@ parser.add_argument("--skip-finetune-eval", action="store_true")
 METHODS = {
     "barlowtwins": {"model": barlowtwins.BarlowTwins, "transform": barlowtwins.transform},
     "simclr": {"model": simclr.SimCLR, "transform": simclr.transform},
+    "byol": {"model": byol.BYOL, "transform": byol.transform},
     "vicreg": {"model": vicreg.VICReg, "transform": vicreg.transform},
+    "mae": {"model": mae.MAE, "transform": mae.transform},
 }
 
 
@@ -200,10 +201,15 @@ def pretrain(
             LearningRateMonitor(),
             # Stop if training loss diverges.
             EarlyStopping(monitor="train_loss", patience=int(1e12), check_finite=True),
-            DeviceStatsMonitor(),
+            # DeviceStatsMonitor(),
             metric_callback,
         ],
-        logger=TensorBoardLogger(save_dir=str(log_dir), name="pretrain"),
+        logger=WandbLogger(
+            save_dir=str(log_dir), name=f"{method}_pretrain", project="ssl4eo",
+            # log model config
+            config=model.hparams
+        ),
+        # logger=TensorBoardLogger(save_dir=str(log_dir), name="pretrain"),
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         sync_batchnorm=accelerator != "cpu",  # Sync batchnorm is not supported on CPU.

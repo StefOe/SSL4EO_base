@@ -1,10 +1,6 @@
 from typing import List, Tuple
 
 import torch
-from lightly.utils.dist import print_rank_zero
-from pytorch_lightning import LightningModule
-from torch import Tensor, nn
-
 from lightly.loss import BarlowTwinsLoss
 from lightly.models.modules import BarlowTwinsProjectionHead
 from lightly.models.utils import get_weight_decay_parameters
@@ -12,52 +8,30 @@ from lightly.transforms import BYOLTransform, BYOLView1Transform, BYOLView2Trans
 from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler
+from torch import Tensor
 
-from methods import get_backbone
+from methods.base import EOModule
 
 
-class BarlowTwins(LightningModule):
+class BarlowTwins(EOModule):
+    default_backbone = "resnet50"
+
     def __init__(self, backbone: str, batch_size_per_device: int, in_channels: int, num_classes: int,
                  last_backbone_channel: int = None):
-        super().__init__()
         self.save_hyperparameters()
+        self.hparams["method"] = self.__class__.__name__
         self.batch_size_per_device = batch_size_per_device
+        super().__init__(backbone, in_channels, last_backbone_channel)
 
-        if backbone == "default":
-            backbone = "resnet50"
-            print_rank_zero(f"Using default backbone: {backbone}")
-        model = get_backbone(backbone, in_channels=in_channels)
-
-        # saving some parameters by deleting unused model parts
-        if hasattr(model, "fc"):
-            del model.fc
-        if hasattr(model, "classifier"):
-            del model.classifier
-
-        self.backbone = model
-        feat_out = model.feature_info[-1]["num_chs"]
-
-        if last_backbone_channel is None:
-            self.backbone_out = nn.Identity()
-            last_backbone_channel = feat_out
-        else:
-            # this module could also reflect the backbone structure better
-            self.backbone_out = nn.Sequential(
-                nn.Conv2d(feat_out, last_backbone_channel, 1),
-
-            )
-
-        self.global_pool = nn.AdaptiveAvgPool2d(1)
-
-        self.projection_head = BarlowTwinsProjectionHead(last_backbone_channel)
+        self.projection_head = BarlowTwinsProjectionHead(self.last_backbone_channel)
         self.criterion = BarlowTwinsLoss(lambda_param=5e-3, gather_distributed=True)
 
-        self.online_classifier = OnlineLinearClassifier(last_backbone_channel, num_classes=num_classes)
+        self.num_classes = num_classes
+        self.online_classifier = OnlineLinearClassifier(self.last_backbone_channel, num_classes=num_classes)
 
     def forward(self, x: Tensor) -> Tensor:
         # x = nn.functional.interpolate(x, 224) # if fixed input size is required
-        features = self.backbone(x)[-1]  # model returns all intermediate results, only use last one
-        features = self.backbone_out(features)
+        features = self.backbone(x)
         return self.global_pool(features)
 
     def training_step(
