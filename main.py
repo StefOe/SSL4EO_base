@@ -78,7 +78,7 @@ def main(
         method_dir = (
                 log_dir / method / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         ).resolve()
-        method_dir.mkdir(exist_ok=True)
+        method_dir.mkdir(exist_ok=True, parents=True)
 
         model = METHODS[method]["model"](
             backbone, batch_size_per_device=batch_size_per_device, num_classes=num_classes, in_channels=in_channels,
