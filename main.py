@@ -1,10 +1,10 @@
+import json
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
 from typing import Sequence, Union
 
 import torch
-import wandb
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
@@ -17,9 +17,12 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from torchvision.datasets import CIFAR10
 
-import finetune_eval
-import knn_eval
-import linear_eval
+import wandb
+from data import MODALITIES
+from data.mmearth_dataset import MultimodalDataset
+from eval.finetune import finetune_eval
+from eval.knn import knn_eval
+from eval.linear import linear_eval
 from methods import simclr, vicreg, barlowtwins, byol, mae
 
 parser = ArgumentParser("MMEarth Benchmark")
@@ -35,13 +38,16 @@ parser.add_argument("--compile-model", action="store_true")
 parser.add_argument("--methods", type=str, nargs="+")
 parser.add_argument("--backbone", type=str, default="default")
 parser.add_argument("--last-backbone-channel", type=int, default=None)
-parser.add_argument("--num-classes", type=int, default=10)
+parser.add_argument("--num-classes", type=int, default=14)
 parser.add_argument("--skip-knn-eval", action="store_true")
 parser.add_argument("--skip-linear-eval", action="store_true")
 parser.add_argument("--skip-finetune-eval", action="store_true")
 
 METHODS = {
-    "barlowtwins": {"model": barlowtwins.BarlowTwins, "transform": barlowtwins.transform},
+    "barlowtwins": {
+        "model": barlowtwins.BarlowTwins,
+        "transform": barlowtwins.transform,
+    },
     "simclr": {"model": simclr.SimCLR, "transform": simclr.transform},
     "byol": {"model": byol.BYOL, "transform": byol.transform},
     "vicreg": {"model": vicreg.VICReg, "transform": vicreg.transform},
@@ -50,39 +56,42 @@ METHODS = {
 
 
 def main(
-        log_dir: Path,
-        batch_size_per_device: int,
-        epochs: int,
-        num_workers: int,
-        accelerator: str,
-        devices: int,
-        precision: str,
-        compile_model: bool,
-        methods: Union[Sequence[str], None],
-        backbone: str,
-        last_backbone_channel: int,
-        num_classes: int,
-        skip_knn_eval: bool,
-        skip_linear_eval: bool,
-        skip_finetune_eval: bool,
-        ckpt_path: Union[Path, None],
+    log_dir: Path,
+    batch_size_per_device: int,
+    epochs: int,
+    num_workers: int,
+    accelerator: str,
+    devices: int,
+    precision: str,
+    compile_model: bool,
+    methods: Union[Sequence[str], None],
+    backbone: str,
+    last_backbone_channel: int,
+    num_classes: int,
+    skip_knn_eval: bool,
+    skip_linear_eval: bool,
+    skip_finetune_eval: bool,
+    ckpt_path: Union[Path, None],
 ) -> None:
     torch.set_float32_matmul_precision("high")
 
     method_names = methods or METHODS.keys()
 
     # This might change for EO
-    in_channels = 3
+    in_channels = 12  # 12 S2 channels
 
     for method in method_names:
         method_dir = (
-                log_dir / method / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            log_dir / method / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         ).resolve()
         method_dir.mkdir(exist_ok=True, parents=True)
 
         model = METHODS[method]["model"](
-            backbone, batch_size_per_device=batch_size_per_device, num_classes=num_classes, in_channels=in_channels,
-            last_backbone_channel=last_backbone_channel
+            backbone,
+            batch_size_per_device=batch_size_per_device,
+            num_classes=num_classes,
+            in_channels=in_channels,
+            last_backbone_channel=last_backbone_channel,
         )
 
         if compile_model and hasattr(torch, "compile"):
@@ -111,7 +120,7 @@ def main(
         if skip_knn_eval:
             print_rank_zero("Skipping KNN eval.")
         else:
-            knn_eval.knn_eval(
+            knn_eval(
                 model=model,
                 num_classes=num_classes,
                 log_dir=method_dir,
@@ -124,7 +133,7 @@ def main(
         if skip_linear_eval:
             print_rank_zero("Skipping linear eval.")
         else:
-            linear_eval.linear_eval(
+            linear_eval(
                 model=model,
                 num_classes=num_classes,
                 log_dir=method_dir,
@@ -138,7 +147,7 @@ def main(
         if skip_finetune_eval:
             print_rank_zero("Skipping fine-tune eval.")
         else:
-            finetune_eval.finetune_eval(
+            finetune_eval(
                 model=model,
                 num_classes=num_classes,
                 log_dir=method_dir,
@@ -151,25 +160,41 @@ def main(
 
 
 def pretrain(
-        model: LightningModule,
-        method: str,
-        log_dir: Path,
-        batch_size_per_device: int,
-        epochs: int,
-        num_workers: int,
-        accelerator: str,
-        devices: int,
-        precision: str,
-        ckpt_path: Union[Path, None],
+    model: LightningModule,
+    method: str,
+    log_dir: Path,
+    batch_size_per_device: int,
+    epochs: int,
+    num_workers: int,
+    accelerator: str,
+    devices: int,
+    precision: str,
+    ckpt_path: Union[Path, None],
 ) -> None:
     print_rank_zero(f"Running pretraining for {method}...")
 
     # Setup training data.
     train_transform = METHODS[method]["transform"]
     # train_dataset = LightlyDataset(input_dir=str(train_dir), transform=train_transform)
-    train_dataset = CIFAR10(
-        "datasets/cifar10", download=True, transform=train_transform
-    )
+    # train_dataset = CIFAR10(
+    #     "datasets/cifar10", download=True, transform=train_transform
+    # )
+
+    data_root = Path("./datasets/data_1k")
+    args.data_path = data_root / "data_1k.h5"
+    args.splits_path = data_root / "data_1k_splits.json"
+    args.tile_info_path = data_root / "data_1k_tile_info.json"
+    with open(args.tile_info_path, "r") as f:
+        args.tile_info = json.load(f)
+    args.band_stats_path = data_root / "data_1k_band_stats.json"
+    with open(args.band_stats_path, "r") as f:
+        args.band_stats = json.load(f)
+    args.data_name = data_root.name
+
+    args.modalities = MODALITIES.OUT_MODALITIES
+    args.modalities_full = MODALITIES.MODALITIES_FULL
+    args.random_crop = False
+    train_dataset = MultimodalDataset(args, split="train", transform=train_transform)
     # train_dataset = LightlyDataset(input_dir=str(train_dir), transform=train_transform)
     train_dataloader = DataLoader(
         train_dataset,
@@ -211,9 +236,11 @@ def pretrain(
             metric_callback,
         ],
         logger=WandbLogger(
-            save_dir=str(log_dir), name=f"pretrain", project="ssl4eo",
+            save_dir=str(log_dir),
+            name=f"pretrain",
+            project="ssl4eo",
             # log model config
-            config=model.hparams
+            config=model.hparams,
         ),
         # logger=TensorBoardLogger(save_dir=str(log_dir), name="pretrain"),
         precision=precision,

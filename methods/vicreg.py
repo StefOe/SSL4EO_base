@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import torch
 from lightly.loss.vicreg_loss import VICRegLoss
@@ -34,9 +34,10 @@ class VICReg(EOModule):
         return self.global_pool(features)
 
     def training_step(
-            self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
+            self, batch: Tuple[Dict[str,Tensor]], batch_idx: int
     ) -> Tensor:
-        views, targets = batch[0], batch[1]
+        views = batch["sentinel2"]
+        targets = batch["biome"] #TODO BIOME IS JUST A PLACEHOLDER
         features = self.forward(torch.cat(views)).flatten(start_dim=1)
         z = self.projection_head(features)
         z_a, z_b = z.chunk(len(views))
@@ -46,6 +47,7 @@ class VICReg(EOModule):
         )
 
         # Online linear evaluation.
+        targets = torch.argmax(targets, dim=1)
         cls_loss, cls_log = self.online_classifier.training_step(
             (features.detach(), targets.repeat(len(views))), batch_idx
         )
@@ -109,7 +111,7 @@ class VICReg(EOModule):
 
 
 # VICReg transform
-transform = VICRegTransform(input_size=32)
+transform = VICRegTransform(input_size=132, normalize=None)
 
 
 def _get_base_learning_rate(global_batch_size: int) -> float:
