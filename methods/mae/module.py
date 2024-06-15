@@ -3,7 +3,6 @@ from typing import List, Tuple
 import torch
 from lightly.models import utils
 from lightly.models.modules import MAEDecoderTIMM, MaskedVisionTransformerTIMM
-from lightly.transforms import MAETransform
 from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.dist import print_rank_zero
 from lightly.utils.scheduler import CosineWarmupScheduler
@@ -165,4 +164,3 @@ class MAE(LightningModule):
         return [optimizer], [scheduler]
 
 
-transform = MAETransform()

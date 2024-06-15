@@ -4,9 +4,7 @@ from pathlib import Path
 import h5py
 import numpy as np
 import torch
-import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
-from torchvision import transforms
 
 from data import MODALITIES
 
@@ -33,40 +31,14 @@ class MultimodalDataset(Dataset):
         self.modalities_full = args.modalities_full
         with open(self.splits_path, "r") as f:
             self.indices = json.load(f)[split]
-        # if internal random cropping should be used
-        self.random_crop = args.random_crop
-        if self.random_crop:
-            self.random_crop_size = args.input_size
 
         # mean, std, min and max of each band
         self.norm_stats = args.band_stats
 
-    def transform_random_crop(self, return_dict: dict, random_crop_size: int = 112):
-        # applying random crop for every modality
-        for modality in return_dict:
-            # we only random crop for pixel based modalities
-            if modality in [
-                "sentinel2",
-                "sentinel1",
-                "aster",
-                "canopy_height_eth",
-                "dynamic_world",
-                "esa_worldcover",
-            ]:
-                c, h, w = return_dict[modality].shape
-                i, j, h, w = transforms.RandomCrop.get_params(
-                    return_dict[modality],
-                    output_size=(random_crop_size, random_crop_size),
-                )
-                return_dict[modality] = TF.crop(return_dict[modality], i, j, h, w)
-            else:
-                return_dict[modality] = return_dict[modality]
-        return return_dict
-
     def apply_transform(self, return_dict: dict):
-        # applying random crop for every modality
+        # applying transform for every pixel-wise modality
         for modality in return_dict:
-            # we only random crop for pixel based modalities
+            # only pixel based modalities
             if modality in [
                 "sentinel2",
                 "sentinel1",
@@ -107,12 +79,18 @@ class MultimodalDataset(Dataset):
 
             if modality in ["biome", "eco_region"]:
                 # for these modalities the array is already one hot encoded. hence modality_idx is not needed.
-                data = self.data_full[modality][self.indices[idx], ...]
-                data = np.array(data)
+                data = self.data_full[modality][self.indices[idx]]
             else:
                 # get the data
-                data = self.data_full[modality][self.indices[idx], modality_idx, ...]
-                data = np.array(data)
+                # check if modalities are in ascending order, if not, swap for reading and swap for storing
+                modality_idx = np.array(modality_idx)
+                if np.all(np.diff(modality_idx) >= 0):
+                    data = self.data_full[modality][self.indices[idx], modality_idx]
+                else:
+                    swap_idx = np.argsort(modality_idx)
+                    data = self.data_full[modality][
+                        self.indices[idx], modality_idx[swap_idx]
+                    ][swap_idx]
 
             # inside the band_stats, the name for sentinel2 is sentinel2_l1c or sentinel2_l2a
             if modality == "sentinel2":
@@ -164,11 +142,6 @@ class MultimodalDataset(Dataset):
             )
             data = torch.from_numpy(data).float()
             return_dict[modality] = data
-
-        if self.random_crop:
-            return_dict = self.transform_random_crop(
-                return_dict, random_crop_size=self.random_crop_size
-            )
 
         if self.transform is not None:
             return_dict = self.apply_transform(return_dict)

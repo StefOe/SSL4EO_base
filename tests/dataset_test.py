@@ -1,6 +1,7 @@
 import json
 from argparse import Namespace
 from pathlib import Path
+
 import pytest
 from torch import Tensor
 
@@ -22,34 +23,34 @@ def args():
         args.band_stats = json.load(f)
     args.data_name = data_root.name
 
-    args.modalities = MODALITIES.OUT_MODALITIES
     args.modalities_full = MODALITIES.MODALITIES_FULL
     return args
 
 
-@pytest.mark.parametrize("random_crop", [False, True])
 @pytest.mark.parametrize("split", ["train", "val", "test"])
-def test_mmearth_dataset(args, random_crop, split):
-    args.random_crop = random_crop
-
-    if random_crop:
-        args.input_size = 64
-
-    dataset = MultimodalDataset(args, split=split)
+@pytest.mark.parametrize(
+    "modalities", [
+        MODALITIES.OUT_MODALITIES, MODALITIES.INP_MODALITIES,
+        MODALITIES.RGB_MODALITIES]
+)
+def test_mmearth_dataset(args, split, modalities):
+    args.modalities = modalities
+    dataset = MultimodalDataset(args, split=split, transform=None)
 
     if split == "train":
         assert len(dataset) > 0, "Dataset should not be empty"
         data = dataset[0]
         assert 'sentinel2' in data, "Dataset should contain 'sentinel2' key"
-        s2_channel = 12
-        assert isinstance(data['sentinel2'], Tensor), "'sentinel2' data should be a Tensor"
-        assert data['sentinel2'].shape[0] == s2_channel, f"'sentinel2' data should have {s2_channel} channels"
         s1_channel = 8
-        assert isinstance(data['sentinel1'], Tensor), "'sentinel1' data should be a Tensor"
-        assert data['sentinel1'].shape[0] == s1_channel, f"'sentinel1' data should have {s1_channel} channels"
+        s2_channel = 12
+        if modalities == MODALITIES.OUT_MODALITIES:
+            assert isinstance(data['sentinel1'], Tensor), "'sentinel1' data should be a Tensor"
+            assert data['sentinel1'].shape[0] == s1_channel, f"'sentinel1' data should have {s1_channel} channels"
+        elif modalities == MODALITIES.RGB_MODALITIES:
+            s2_channel = 3
+        assert isinstance(data['sentinel2'], Tensor), "'sentinel2' data should be a Tensor"
+        assert data['sentinel2'].shape[0] == s2_channel, (f"'sentinel2' data should have {s2_channel} channels "
+                                                          f"for {modalities.__name__}")
 
-        if random_crop:
-            assert data['sentinel2'].shape[1] == args.input_size, "input should be multicropped"
-            assert data['sentinel2'].shape[2] == args.input_size, "input should be multicropped"
     else:
         assert len(dataset) == 0, f"{split} dataset should be empty"

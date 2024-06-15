@@ -2,15 +2,13 @@ import copy
 from typing import List, Tuple
 
 import torch
-from torch import Tensor
-
 from lightly.loss import NegativeCosineSimilarity
 from lightly.models.modules import BYOLPredictionHead, BYOLProjectionHead
 from lightly.models.utils import get_weight_decay_parameters, update_momentum
-from lightly.transforms import BYOLTransform, BYOLView1Transform, BYOLView2Transform
 from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler, cosine_schedule
+from torch import Tensor
 
 from methods.base import EOModule
 
@@ -146,7 +144,3 @@ class BYOL(EOModule):
         return [optimizer], [scheduler]
 
 
-# BYOL uses a slight modification of the SimCLR transforms.
-# It uses asymmetric augmentation and solarize.
-# Check table 6 in the BYOL paper for more info.
-transform = BYOLTransform(BYOLView1Transform(input_size=32), BYOLView2Transform(input_size=32))

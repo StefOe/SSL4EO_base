@@ -50,6 +50,10 @@ INP_MODALITIES = {
     'sentinel2': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8A', 'B8', 'B9', 'B11', 'B12'],
 }
 
+RGB_MODALITIES = {
+    'sentinel2': ['B4', 'B3', 'B2'],
+}
+
 # Output modalities for training
 OUT_MODALITIES = {
     'sentinel2': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8A', 'B8', 'B9', 'B11', 'B12'],

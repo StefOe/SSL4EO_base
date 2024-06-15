@@ -23,7 +23,16 @@ from data.mmearth_dataset import MultimodalDataset
 from eval.finetune import finetune_eval
 from eval.knn import knn_eval
 from eval.linear import linear_eval
-from methods import simclr, vicreg, barlowtwins, byol, mae
+from methods.barlowtwins.module import BarlowTwins
+from methods.barlowtwins.transform import BarlowTwinsView2Transform, BarlowTwinsView1Transform, BarlowTwinsTransform
+from methods.byol.module import BYOL
+from methods.byol.transform import BYOLTransform, BYOLView1Transform, BYOLView2Transform
+from methods.mae.module import MAE
+from methods.mae.transform import MAETransform
+from methods.simclr.module import SimCLR
+from methods.simclr.transform import SimCLRTransform
+from methods.vicreg.module import VICReg
+from methods.vicreg.transform import VICRegTransform
 
 parser = ArgumentParser("MMEarth Benchmark")
 parser.add_argument("--log-dir", type=Path, default="benchmark_logs")
@@ -45,13 +54,17 @@ parser.add_argument("--skip-finetune-eval", action="store_true")
 
 METHODS = {
     "barlowtwins": {
-        "model": barlowtwins.BarlowTwins,
-        "transform": barlowtwins.transform,
+        "model": BarlowTwins,
+        "transform": BarlowTwinsTransform(
+            BarlowTwinsView1Transform(input_size=32), BarlowTwinsView2Transform(input_size=32)
+        ),
     },
-    "simclr": {"model": simclr.SimCLR, "transform": simclr.transform},
-    "byol": {"model": byol.BYOL, "transform": byol.transform},
-    "vicreg": {"model": vicreg.VICReg, "transform": vicreg.transform},
-    "mae": {"model": mae.MAE, "transform": mae.transform},
+    "simclr": {"model": SimCLR, "transform":SimCLRTransform(input_size=32)},
+    "byol": {"model": BYOL, "transform": BYOLTransform(
+        BYOLView1Transform(input_size=32), BYOLView2Transform(input_size=32)
+    )},
+    "vicreg": {"model": VICReg, "transform": VICRegTransform(normalize=None)},
+    "mae": {"model": MAE, "transform": MAETransform()},
 }
 
 
