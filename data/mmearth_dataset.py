@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from data import MODALITIES
+from data.constants import NO_DATA_VAL
 
 
 ##################### FUNCTIONS FOR PRETRAINING DATASETS #####################
@@ -79,7 +79,7 @@ class MultimodalDataset(Dataset):
 
             if modality in ["biome", "eco_region"]:
                 # for these modalities the array is already one hot encoded. hence modality_idx is not needed.
-                data = self.data_full[modality][self.indices[idx]]
+                data = np.argmax(self.data_full[modality][self.indices[idx]])
             else:
                 # get the data
                 # check if modalities are in ascending order, if not, swap for reading and swap for storing
@@ -92,31 +92,10 @@ class MultimodalDataset(Dataset):
                         self.indices[idx], modality_idx[swap_idx]
                     ][swap_idx]
 
-            # inside the band_stats, the name for sentinel2 is sentinel2_l1c or sentinel2_l2a
-            if modality == "sentinel2":
-                modality_ = "sentinel2_l2a" if l2a else "sentinel2_l1c"
-            else:
-                modality_ = modality
-
-            if modality not in [
-                "biome",
-                "eco_region",
-                "dynamic_world",
-                "esa_worldcover",
-            ]:
-                means = np.array(self.norm_stats[modality_]["mean"])[modality_idx]
-                stds = np.array(self.norm_stats[modality_]["std"])[modality_idx]
-                if modality in ["era5", "lat", "lon", "month"]:
-                    # single value mean and std
-                    data = (data - means) / stds
-                else:
-                    # single value mean and std for each band
-                    data = (data - means[:, None, None]) / stds[:, None, None]
-
             if modality == "dynamic_world":
                 # the labels of dynamic world are 0, 1, 2, 3, 4, 5, 6, 7, 8, 9. We convert them to 0, 1, 2, 3, 4, 5, 6, 7, 8, nan respectively.
                 # originally when downloading the no return_dict values are 0. hence we remap them to nan.
-                data = np.where(data == MODALITIES.NO_DATA_VAL[modality], np.nan, data)
+                data = np.where(data == NO_DATA_VAL[modality], np.nan, data)
                 old_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, np.nan]
                 new_values = [0, 1, 2, 3, 4, 5, 6, 7, 8, np.nan]
                 for old, new in zip(old_values, new_values):
@@ -134,15 +113,57 @@ class MultimodalDataset(Dataset):
                 # for any value greater than 10, we map them to nan
                 data = np.where(data > 10, np.nan, data)
 
+            # normalize
+            if modality not in [
+                "biome",
+                "eco_region",
+                "dynamic_world",
+                "esa_worldcover",
+            ]:
+                if self.modalities[modality] == "all":
+                    modality_idx = [
+                        i for i in range(len(self.modalities_full[modality]))
+                    ]
+                else:
+                    modality_idx = [
+                        self.modalities_full[modality].index(m)
+                        for m in self.modalities[modality]
+                    ]
+
+                # inside the band_stats, the name for sentinel2 is sentinel2_l1c or sentinel2_l2a
+                if modality == "sentinel2":
+                    modality_ = "sentinel2_l2a" if l2a else "sentinel2_l1c"
+                else:
+                    modality_ = modality
+
+                means = np.array(self.norm_stats[modality_]["mean"])[modality_idx]
+                stds = np.array(self.norm_stats[modality_]["std"])[modality_idx]
+                if modality in ["era5", "lat", "lon", "month"]:
+                    # single value mean and std
+                    data = (data - means) / stds
+                else:
+                    # single value mean and std for each band
+                    data = (data - means[:, None, None]) / stds[:, None, None]
+
             # converting the nodata values to nan to keep everything consistent
             data = (
-                np.where(data == MODALITIES.NO_DATA_VAL[modality], np.nan, data)
+                np.where(data == NO_DATA_VAL[modality], np.nan, data)
                 if modality != "dynamic_world"
                 else data
             )
-            data = torch.from_numpy(data).float()
+            data = torch.from_numpy(data)
+            if modality in [
+                "biome",
+                "eco_region",
+                "dynamic_world",
+                "esa_worldcover",
+            ]:
+                data = data.long()
+            else:
+                data = data.float()
             return_dict[modality] = data
 
+        # apply transforms on normalized data
         if self.transform is not None:
             return_dict = self.apply_transform(return_dict)
 

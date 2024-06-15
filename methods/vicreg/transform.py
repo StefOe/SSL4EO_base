@@ -4,7 +4,6 @@ import torchvision.transforms as T
 from PIL.Image import Image
 from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
-from lightly.transforms.utils import IMAGENET_NORMALIZE
 from torch import Tensor
 
 
@@ -94,7 +93,6 @@ class VICRegTransform(MultiViewTransform):
             hf_prob: float = 0.5,
             rr_prob: float = 0.0,
             rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
-            normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
     ):
         view_transform = VICRegViewTransform(
             input_size=input_size,
@@ -114,7 +112,6 @@ class VICRegTransform(MultiViewTransform):
             hf_prob=hf_prob,
             rr_prob=rr_prob,
             rr_degrees=rr_degrees,
-            normalize=normalize,
         )
         super().__init__(transforms=[view_transform, view_transform])
 
@@ -139,7 +136,6 @@ class VICRegViewTransform:
             hf_prob: float = 0.5,
             rr_prob: float = 0.0,
             rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
-            normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
     ):
         color_jitter = T.ColorJitter(
             brightness=cj_strength * cj_bright,
@@ -157,10 +153,7 @@ class VICRegViewTransform:
             # T.RandomGrayscale(p=random_gray_scale),
             # RandomSolarization(prob=solarize_prob),
             # GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
-            # T.ToTensor(),
         ]
-        if normalize:
-            transform += [T.Normalize(mean=normalize["mean"], std=normalize["std"])]
         self.transform = T.Compose(transform)
 
     def __call__(self, image: Union[Tensor, Image]) -> Tensor:

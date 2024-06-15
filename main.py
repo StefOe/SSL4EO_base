@@ -1,11 +1,11 @@
 import json
 from argparse import ArgumentParser
+from copy import copy
 from datetime import datetime
 from pathlib import Path
 from typing import Sequence, Union
 
 import torch
-import wandb
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
@@ -18,7 +18,13 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from torchvision.datasets import CIFAR10
 
-from data import MODALITIES
+import wandb
+from data.constants import (
+    INP_MODALITIES,
+    RGB_MODALITIES,
+    MODALITIES_FULL,
+    CLASSIFICATION_CLASSES,
+)
 from data.mmearth_dataset import MultimodalDataset
 from eval.finetune import finetune_eval
 from eval.knn import knn_eval
@@ -50,8 +56,22 @@ parser.add_argument("--ckpt-path", type=Path, default=None)
 parser.add_argument("--compile-model", action="store_true")
 parser.add_argument("--methods", type=str, nargs="+")
 parser.add_argument("--backbone", type=str, default="default")
+parser.add_argument(
+    "--input-channel",
+    "-i",
+    type=str,
+    default="all",
+    help="e.g. 'all', 'rgb' (default: 'all')",
+)
+parser.add_argument(
+    "--target",
+    "-t",
+    type=str,
+    default="biome",
+    help="select a target modality for the online classifier "
+    "(e.g., 'biome', 'eco_region')",
+)
 parser.add_argument("--last-backbone-channel", type=int, default=None)
-parser.add_argument("--num-classes", type=int, default=14)
 parser.add_argument("--skip-knn-eval", action="store_true")
 parser.add_argument("--skip-linear-eval", action="store_true")
 parser.add_argument("--skip-finetune-eval", action="store_true")
@@ -71,8 +91,13 @@ METHODS = {
             BYOLView1Transform(input_size=32), BYOLView2Transform(input_size=32)
         ),
     },
-    "vicreg": {"model": VICReg, "transform": VICRegTransform(normalize=None)},
+    "vicreg": {"model": VICReg, "transform": VICRegTransform()},
     "mae": {"model": MAE, "transform": MAETransform()},
+}
+
+IN_MODALITIES = {
+    "all": INP_MODALITIES,
+    "rgb": RGB_MODALITIES,
 }
 
 
@@ -87,8 +112,9 @@ def main(
     compile_model: bool,
     methods: Union[Sequence[str], None],
     backbone: str,
+    input_channel: str,
+    target: str,
     last_backbone_channel: int,
-    num_classes: int,
     skip_knn_eval: bool,
     skip_linear_eval: bool,
     skip_finetune_eval: bool,
@@ -98,8 +124,20 @@ def main(
 
     method_names = methods or METHODS.keys()
 
-    # This might change for EO
-    in_channels = 12  # 12 S2 channels
+    # store the requested channel combination
+    input_modality = IN_MODALITIES[input_channel]
+    input_key = list(input_modality.keys())[0] # should be sentinel2 with defaults
+
+    # number depend on which channel combination is chosen
+    in_channels = sum([len(input_modality[k]) for k in input_modality])
+
+    # checking if target is given (if not, no onlineclassifier will be trained)
+    if target is None or target.lower() == "none":
+        target = None
+        target_modality = None
+    else:
+        target_modality = {target: MODALITIES_FULL[target]}
+    num_classes = CLASSIFICATION_CLASSES[target]
 
     for method in method_names:
         method_dir = (
@@ -108,7 +146,9 @@ def main(
         method_dir.mkdir(exist_ok=True, parents=True)
 
         model = METHODS[method]["model"](
-            backbone,
+            input_key=input_key,
+            target_key=target,
+            backbone=backbone,
             batch_size_per_device=batch_size_per_device,
             num_classes=num_classes,
             in_channels=in_channels,
@@ -128,6 +168,8 @@ def main(
             pretrain(
                 model=model,
                 method=method,
+                input_modality=input_modality,
+                target_modality = target_modality,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 epochs=epochs,
@@ -183,6 +225,8 @@ def main(
 def pretrain(
     model: LightningModule,
     method: str,
+    input_modality: dict,
+    target_modality: dict,
     log_dir: Path,
     batch_size_per_device: int,
     epochs: int,
@@ -196,10 +240,6 @@ def pretrain(
 
     # Setup training data.
     train_transform = METHODS[method]["transform"]
-    # train_dataset = LightlyDataset(input_dir=str(train_dir), transform=train_transform)
-    # train_dataset = CIFAR10(
-    #     "datasets/cifar10", download=True, transform=train_transform
-    # )
 
     data_root = Path("./datasets/data_1k")
     args.data_path = data_root / "data_1k.h5"
@@ -212,18 +252,21 @@ def pretrain(
         args.band_stats = json.load(f)
     args.data_name = data_root.name
 
-    args.modalities = MODALITIES.OUT_MODALITIES
-    args.modalities_full = MODALITIES.MODALITIES_FULL
+    modalities = copy(input_modality)
+    if target_modality is not None:
+        modalities.update(target_modality)
+
+    args.modalities = modalities
+    args.modalities_full = MODALITIES_FULL
     args.random_crop = False
     train_dataset = MultimodalDataset(args, split="train", transform=train_transform)
-    # train_dataset = LightlyDataset(input_dir=str(train_dir), transform=train_transform)
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size_per_device,
         shuffle=True,
         num_workers=num_workers,
         drop_last=True,
-        persistent_workers=True,
+        persistent_workers=num_workers > 0,
     )
 
     # Setup validation data.
@@ -236,13 +279,12 @@ def pretrain(
     val_dataset = CIFAR10(
         "datasets/cifar10", download=True, transform=val_transform, train=False
     )
-    # val_dataset = LightlyDataset(input_dir=str(val_dir), transform=val_transform)
     val_dataloader = DataLoader(
         val_dataset,
         batch_size=batch_size_per_device,
         shuffle=False,
         num_workers=num_workers,
-        persistent_workers=True,
+        persistent_workers=num_workers > 0,
     )
 
     # Train model.
