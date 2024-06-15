@@ -1,4 +1,6 @@
 import json
+from argparse import Namespace
+from copy import copy
 from pathlib import Path
 
 import h5py
@@ -6,14 +8,14 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from data.constants import NO_DATA_VAL
+from data.constants import NO_DATA_VAL, MODALITIES_FULL
 
 
 ##################### FUNCTIONS FOR PRETRAINING DATASETS #####################
 
 
 class MultimodalDataset(Dataset):
-    def __init__(self, args, split: str, transform):
+    def __init__(self, args, split: str, transform, return_tuple:bool=False):
         # return_dict transform
         self.transform = transform
 
@@ -35,7 +37,11 @@ class MultimodalDataset(Dataset):
         # mean, std, min and max of each band
         self.norm_stats = args.band_stats
 
+        self.return_tuple = return_tuple
+
     def apply_transform(self, return_dict: dict):
+        # TODO if more modalities are used, this will create a distorted view
+        #  (e.g., flip applied to one but not to another modality)
         # applying transform for every pixel-wise modality
         for modality in return_dict:
             # only pixel based modalities
@@ -163,11 +169,34 @@ class MultimodalDataset(Dataset):
                 data = data.float()
             return_dict[modality] = data
 
+        # we also return the id, to differentiate between sentinel2_l1c and sentinel2_l2a, since this is given in the tile_info json file. To keep everything
+        # consistent, we name the modality as sentinel2 instead of sentinel2_l1c or sentinel2_l2a
+        return_dict["id"] = name
+
         # apply transforms on normalized data
         if self.transform is not None:
             return_dict = self.apply_transform(return_dict)
 
-        # we also return the id, to differentiate between sentinel2_l1c and sentinel2_l2a, since this is given in the tile_info json file. To keep everything
-        # consistent, we name the modality as sentinel2 instead of sentinel2_l1c or sentinel2_l2a
-        return_dict["id"] = name
+        if self.return_tuple:
+            return tuple(return_dict.values())
+
         return return_dict
+
+
+def create_MMEearth_args(data_root, input_modality, target_modality):
+    args = Namespace()
+    args.data_path = data_root / "data_1k.h5"
+    args.splits_path = data_root / "data_1k_splits.json"
+    args.tile_info_path = data_root / "data_1k_tile_info.json"
+    with open(args.tile_info_path, "r") as f:
+        args.tile_info = json.load(f)
+    args.band_stats_path = data_root / "data_1k_band_stats.json"
+    with open(args.band_stats_path, "r") as f:
+        args.band_stats = json.load(f)
+    args.data_name = data_root.name
+    modalities = copy(input_modality)
+    if target_modality is not None:
+        modalities.update(target_modality)
+    args.modalities = modalities
+    args.modalities_full = MODALITIES_FULL
+    return args

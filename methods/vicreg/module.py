@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import Dict
 
 import torch
 from lightly.loss.vicreg_loss import VICRegLoss

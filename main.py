@@ -1,6 +1,4 @@
-import json
 from argparse import ArgumentParser
-from copy import copy
 from datetime import datetime
 from pathlib import Path
 from typing import Sequence, Union
@@ -23,7 +21,7 @@ from data.constants import (
     MODALITIES_FULL,
     CLASSIFICATION_CLASSES,
 )
-from data.mmearth_dataset import MultimodalDataset
+from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
 from eval.finetune import finetune_eval
 from eval.knn import knn_eval
 from eval.linear import linear_eval
@@ -43,9 +41,16 @@ from methods.vicreg.module import VICReg
 from methods.vicreg.transform import VICRegTransform
 
 parser = ArgumentParser("MMEarth Benchmark")
-parser.add_argument("--log-dir", type=Path, default="benchmark_logs")
+parser.add_argument("--data-dir", type=Path, default="./datasets/data_1k")
+parser.add_argument("--log-dir", type=Path, default="experiment_logs")
 parser.add_argument("--batch-size-per-device", type=int, default=128)
-parser.add_argument("--epochs", type=int, default=100)
+parser.add_argument(
+    "--epochs",
+    type=int,
+    default=100,
+    help="Defines number of epochs for pretraining. 0 epochs skips directly to eval steps "
+    "(good for loading and testing models)",
+)
 parser.add_argument("--num-workers", type=int, default=8)
 parser.add_argument("--accelerator", type=str, default="gpu")
 parser.add_argument("--devices", type=int, default=1)
@@ -100,6 +105,7 @@ IN_MODALITIES = {
 
 
 def main(
+    data_dir: Path,
     log_dir: Path,
     batch_size_per_device: int,
     epochs: int,
@@ -118,13 +124,16 @@ def main(
     skip_finetune_eval: bool,
     ckpt_path: Union[Path, None],
 ) -> None:
+    assert data_dir.exists(), f"data folder does not exist: {data_dir}"
+    log_dir.mkdir(exist_ok=True)
+
     torch.set_float32_matmul_precision("high")
 
     method_names = methods or METHODS.keys()
 
     # store the requested channel combination
     input_modality = IN_MODALITIES[input_channel]
-    input_key = list(input_modality.keys())[0] # should be sentinel2 with defaults
+    input_key = list(input_modality.keys())[0]  # should be sentinel2 with defaults
 
     # number depend on which channel combination is chosen
     in_channels = sum([len(input_modality[k]) for k in input_modality])
@@ -167,7 +176,8 @@ def main(
                 model=model,
                 method=method,
                 input_modality=input_modality,
-                target_modality = target_modality,
+                target_modality=target_modality,
+                data_dir=data_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 epochs=epochs,
@@ -178,12 +188,18 @@ def main(
                 ckpt_path=ckpt_path,
             )
 
+        if target is None:
+            print_rank_zero("Skipping offline eval because no target is selected.")
+
         if skip_knn_eval:
             print_rank_zero("Skipping KNN eval.")
         else:
             knn_eval(
                 model=model,
                 num_classes=num_classes,
+                input_modality=input_modality,
+                target_modality=target_modality,
+                data_dir=data_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 num_workers=num_workers,
@@ -197,6 +213,9 @@ def main(
             linear_eval(
                 model=model,
                 num_classes=num_classes,
+                input_modality=input_modality,
+                target_modality=target_modality,
+                data_dir=data_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 num_workers=num_workers,
@@ -211,6 +230,9 @@ def main(
             finetune_eval(
                 model=model,
                 num_classes=num_classes,
+                input_modality=input_modality,
+                target_modality=target_modality,
+                data_dir=data_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 num_workers=num_workers,
@@ -226,6 +248,7 @@ def pretrain(
     input_modality: dict,
     target_modality: dict,
     log_dir: Path,
+    data_dir: Path,
     batch_size_per_device: int,
     epochs: int,
     num_workers: int,
@@ -237,26 +260,9 @@ def pretrain(
     print_rank_zero(f"Running pretraining for {method}...")
 
     # Setup training data.
+    args = create_MMEearth_args(data_dir, input_modality, target_modality)
+
     train_transform = METHODS[method]["transform"]
-
-    data_root = Path("./datasets/data_1k")
-    args.data_path = data_root / "data_1k.h5"
-    args.splits_path = data_root / "data_1k_splits.json"
-    args.tile_info_path = data_root / "data_1k_tile_info.json"
-    with open(args.tile_info_path, "r") as f:
-        args.tile_info = json.load(f)
-    args.band_stats_path = data_root / "data_1k_band_stats.json"
-    with open(args.band_stats_path, "r") as f:
-        args.band_stats = json.load(f)
-    args.data_name = data_root.name
-
-    modalities = copy(input_modality)
-    if target_modality is not None:
-        modalities.update(target_modality)
-
-    args.modalities = modalities
-    args.modalities_full = MODALITIES_FULL
-    args.random_crop = False
     train_dataset = MultimodalDataset(args, split="train", transform=train_transform)
     train_dataloader = DataLoader(
         train_dataset,
@@ -315,9 +321,17 @@ def pretrain(
         val_dataloaders=val_dataloader,
         ckpt_path=ckpt_path,
     )
-    if target_modality is not None and val_dataloader is not None:
-        for metric in ["val_online_cls_top1", "val_online_cls_top5"]:
-            print_rank_zero(f"max {metric}: {max(metric_callback.val_metrics[metric])}")
+    if target_modality is not None:
+        if val_dataloader is None:
+            for metric in ["train_top1", "train_top5"]:
+                print_rank_zero(
+                    f"max finetune {metric}: {max(metric_callback.train_metrics[metric])}"
+                )
+        else:
+            for metric in ["val_online_cls_top1", "val_online_cls_top5"]:
+                print_rank_zero(
+                    f"max {metric}: {max(metric_callback.val_metrics[metric])}"
+                )
     wandb.finish()
 
 
