@@ -19,7 +19,7 @@ def args():
     with open(args.tile_info_path, "r") as f:
         args.tile_info = json.load(f)
     args.band_stats_path = data_root / "data_1k_band_stats.json"
-    with open(args.band_stats_path, 'r') as f:
+    with open(args.band_stats_path, "r") as f:
         args.band_stats = json.load(f)
     args.data_name = data_root.name
 
@@ -29,9 +29,8 @@ def args():
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
 @pytest.mark.parametrize(
-    "modalities", [
-        MODALITIES.OUT_MODALITIES, MODALITIES.INP_MODALITIES,
-        MODALITIES.RGB_MODALITIES]
+    "modalities",
+    [MODALITIES.OUT_MODALITIES, MODALITIES.INP_MODALITIES, MODALITIES.RGB_MODALITIES],
 )
 def test_mmearth_dataset(args, split, modalities):
     args.modalities = modalities
@@ -40,17 +39,25 @@ def test_mmearth_dataset(args, split, modalities):
     if split == "train":
         assert len(dataset) > 0, "Dataset should not be empty"
         data = dataset[0]
-        assert 'sentinel2' in data, "Dataset should contain 'sentinel2' key"
+        assert "sentinel2" in data, "Dataset should contain 'sentinel2' key"
         s1_channel = 8
         s2_channel = 12
         if modalities == MODALITIES.OUT_MODALITIES:
-            assert isinstance(data['sentinel1'], Tensor), "'sentinel1' data should be a Tensor"
-            assert data['sentinel1'].shape[0] == s1_channel, f"'sentinel1' data should have {s1_channel} channels"
+            assert isinstance(
+                data["sentinel1"], Tensor
+            ), "'sentinel1' data should be a Tensor"
+            assert (
+                data["sentinel1"].shape[0] == s1_channel
+            ), f"'sentinel1' data should have {s1_channel} channels"
         elif modalities == MODALITIES.RGB_MODALITIES:
             s2_channel = 3
-        assert isinstance(data['sentinel2'], Tensor), "'sentinel2' data should be a Tensor"
-        assert data['sentinel2'].shape[0] == s2_channel, (f"'sentinel2' data should have {s2_channel} channels "
-                                                          f"for {modalities.__name__}")
+        assert isinstance(
+            data["sentinel2"], Tensor
+        ), "'sentinel2' data should be a Tensor"
+        assert data["sentinel2"].shape[0] == s2_channel, (
+            f"'sentinel2' data should have {s2_channel} channels "
+            f"for {modalities.__name__}"
+        )
 
     else:
         assert len(dataset) == 0, f"{split} dataset should be empty"

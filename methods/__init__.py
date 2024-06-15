@@ -1,14 +1,16 @@
 from lightly.utils.dist import print_rank_zero
 from timm.models import create_model
-from torch import nn
 from torch import Tensor
+from torch import nn
 
 
 def get_backbone(name: str, in_channels: int, feautures_only: bool = True):
     try:
         model = create_model(name, pretrained=False, features_only=feautures_only)
     except RuntimeError:
-        print_rank_zero(f"Could not find '{name}' backbone or it does not support 'features_only' mode, quitting now")
+        print_rank_zero(
+            f"Could not find '{name}' backbone or it does not support 'features_only' mode, quitting now"
+        )
         quit()
 
     change_input_dims(model, in_channels)
@@ -29,7 +31,9 @@ def change_input_dims(model, in_channels):
                 )
             )
             module.reset_parameters()
-        elif isinstance(module, nn.Linear) and module.in_features == default_in_channels:
+        elif (
+            isinstance(module, nn.Linear) and module.in_features == default_in_channels
+        ):
             module.weight = nn.parameter.Parameter(
                 Tensor(
                     module.out_features,
@@ -39,5 +43,8 @@ def change_input_dims(model, in_channels):
             module.reset_parameters()
 
     # only changing the obvious setting (there are more like "test_input_size" that are not always present)
-    model.default_cfg["input_size"] = (in_channels, *model.default_cfg["input_size"][1:])
+    model.default_cfg["input_size"] = (
+        in_channels,
+        *model.default_cfg["input_size"][1:],
+    )
     return model

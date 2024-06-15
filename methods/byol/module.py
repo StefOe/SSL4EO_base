@@ -142,5 +142,3 @@ class BYOL(EOModule):
             "interval": "step",
         }
         return [optimizer], [scheduler]
-
-

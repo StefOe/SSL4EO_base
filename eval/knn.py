@@ -2,24 +2,23 @@ from pathlib import Path
 
 import torch
 import wandb
+from lightly.utils.benchmarking import KNNClassifier, MetricCallback
+from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
-
-from lightly.utils.benchmarking import KNNClassifier, MetricCallback
-from lightly.utils.dist import print_rank_zero
 from torchvision.datasets import CIFAR10
 
 
 def knn_eval(
-    model: LightningModule,
-    log_dir: Path,
-    batch_size_per_device: int,
-    num_workers: int,
-    accelerator: str,
-    devices: int,
-    num_classes: int,
+        model: LightningModule,
+        log_dir: Path,
+        batch_size_per_device: int,
+        num_workers: int,
+        accelerator: str,
+        devices: int,
+        num_classes: int,
 ) -> None:
     """Runs KNN evaluation on the given model.
 

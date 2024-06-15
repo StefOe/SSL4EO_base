@@ -2,12 +2,10 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import torchvision.transforms as T
 from PIL.Image import Image
-from torch import Tensor
-
 from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
-from lightly.transforms.solarize import RandomSolarization
 from lightly.transforms.utils import IMAGENET_NORMALIZE
+from torch import Tensor
 
 
 class VICRegTransform(MultiViewTransform):
@@ -78,25 +76,25 @@ class VICRegTransform(MultiViewTransform):
     """
 
     def __init__(
-        self,
-        input_size: int = 224,
-        cj_prob: float = 0.8,
-        cj_strength: float = 0.5,
-        cj_bright: float = 0.8,
-        cj_contrast: float = 0.8,
-        cj_sat: float = 0.4,
-        cj_hue: float = 0.2,
-        min_scale: float = 0.08,
-        random_gray_scale: float = 0.2,
-        solarize_prob: float = 0.1,
-        gaussian_blur: float = 0.5,
-        kernel_size: Optional[float] = None,
-        sigmas: Tuple[float, float] = (0.1, 2),
-        vf_prob: float = 0.0,
-        hf_prob: float = 0.5,
-        rr_prob: float = 0.0,
-        rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
-        normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
+            self,
+            input_size: int = 224,
+            cj_prob: float = 0.8,
+            cj_strength: float = 0.5,
+            cj_bright: float = 0.8,
+            cj_contrast: float = 0.8,
+            cj_sat: float = 0.4,
+            cj_hue: float = 0.2,
+            min_scale: float = 0.08,
+            random_gray_scale: float = 0.2,
+            solarize_prob: float = 0.1,
+            gaussian_blur: float = 0.5,
+            kernel_size: Optional[float] = None,
+            sigmas: Tuple[float, float] = (0.1, 2),
+            vf_prob: float = 0.0,
+            hf_prob: float = 0.5,
+            rr_prob: float = 0.0,
+            rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
+            normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
     ):
         view_transform = VICRegViewTransform(
             input_size=input_size,
@@ -123,25 +121,25 @@ class VICRegTransform(MultiViewTransform):
 
 class VICRegViewTransform:
     def __init__(
-        self,
-        input_size: int = 224,
-        cj_prob: float = 0.8,
-        cj_strength: float = 0.5,
-        cj_bright: float = 0.8,
-        cj_contrast: float = 0.8,
-        cj_sat: float = 0.4,
-        cj_hue: float = 0.2,
-        min_scale: float = 0.08,
-        random_gray_scale: float = 0.2,
-        solarize_prob: float = 0.1,
-        gaussian_blur: float = 0.5,
-        kernel_size: Optional[float] = None,
-        sigmas: Tuple[float, float] = (0.2, 2),
-        vf_prob: float = 0.0,
-        hf_prob: float = 0.5,
-        rr_prob: float = 0.0,
-        rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
-        normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
+            self,
+            input_size: int = 224,
+            cj_prob: float = 0.8,
+            cj_strength: float = 0.5,
+            cj_bright: float = 0.8,
+            cj_contrast: float = 0.8,
+            cj_sat: float = 0.4,
+            cj_hue: float = 0.2,
+            min_scale: float = 0.08,
+            random_gray_scale: float = 0.2,
+            solarize_prob: float = 0.1,
+            gaussian_blur: float = 0.5,
+            kernel_size: Optional[float] = None,
+            sigmas: Tuple[float, float] = (0.2, 2),
+            vf_prob: float = 0.0,
+            hf_prob: float = 0.5,
+            rr_prob: float = 0.0,
+            rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
+            normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
     ):
         color_jitter = T.ColorJitter(
             brightness=cj_strength * cj_bright,

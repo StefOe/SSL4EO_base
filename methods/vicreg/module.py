@@ -33,10 +33,10 @@ class VICReg(EOModule):
         return self.global_pool(features)
 
     def training_step(
-            self, batch: Tuple[Dict[str,Tensor]], batch_idx: int
+            self, batch: Tuple[Dict[str, Tensor]], batch_idx: int
     ) -> Tensor:
         views = batch["sentinel2"]
-        targets = batch["biome"] #TODO BIOME IS JUST A PLACEHOLDER
+        targets = batch["biome"]  # TODO BIOME IS JUST A PLACEHOLDER
         features = self.forward(torch.cat(views)).flatten(start_dim=1)
         z = self.projection_head(features)
         z_a, z_b = z.chunk(len(views))
@@ -107,6 +107,7 @@ class VICReg(EOModule):
             "interval": "step",
         }
         return [optimizer], [scheduler]
+
 
 def _get_base_learning_rate(global_batch_size: int) -> float:
     """Returns the base learning rate for training 100 epochs with a given batch size.

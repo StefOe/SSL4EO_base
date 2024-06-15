@@ -162,5 +162,3 @@ class MAE(LightningModule):
             "interval": "step",
         }
         return [optimizer], [scheduler]
-
-

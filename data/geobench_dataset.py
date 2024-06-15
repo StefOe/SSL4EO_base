@@ -1,13 +1,8 @@
-from pathlib import Path
-
-from torch.utils.data import Dataset
-import h5py
-import torch
-import numpy as np
 import json
-from data import MODALITIES
-from torchvision import transforms
-import torchvision.transforms.functional as TF
+
+import numpy as np
+import torch
+from torch.utils.data import Dataset
 
 ##################### FUNCTIONS FOR FINE-TUNING DATASETS #####################
 
@@ -16,7 +11,13 @@ with open("data/BAND_NAMES.json", "r") as f:
 
 
 class GeobenchDataset(Dataset):
-    def __init__(self, dataset_name=None, split="train", transform=None, benchmark_name="classification"):
+    def __init__(
+        self,
+        dataset_name=None,
+        split="train",
+        transform=None,
+        benchmark_name="classification",
+    ):
         if split == "val":
             split = "valid"
 
@@ -30,9 +31,13 @@ class GeobenchDataset(Dataset):
                 break
         self.transform = transform
         self.dataset_name = dataset_name
-        self.dataset = task.get_dataset(split=split, band_names=BAND_NAMES[dataset_name])
+        self.dataset = task.get_dataset(
+            split=split, band_names=BAND_NAMES[dataset_name]
+        )
         self.label_map = task.get_label_map()
-        self.label_stats = task.label_stats() if benchmark_name != "segmentation_v0.9.1/" else "None"
+        self.label_stats = (
+            task.label_stats() if benchmark_name != "segmentation_v0.9.1/" else "None"
+        )
         self.dataset_dir = task.get_dataset_dir()
         if dataset_name == "m-brick-kiln":
             self.num_classes = 2
@@ -44,9 +49,15 @@ class GeobenchDataset(Dataset):
             self.num_classes = 10
         else:
             self.num_classes = len(task.get_label_map().keys())
-        self.tmp_band_names = [self.dataset[0].bands[i].band_info.name for i in range(len(self.dataset[0].bands))]
+        self.tmp_band_names = [
+            self.dataset[0].bands[i].band_info.name
+            for i in range(len(self.dataset[0].bands))
+        ]
         # get the tmp bands in the same order as the ones present in the BAND_NAMES.json file
-        self.tmp_band_indices = [self.tmp_band_names.index(band_name) for band_name in BAND_NAMES[dataset_name]]
+        self.tmp_band_indices = [
+            self.tmp_band_names.index(band_name)
+            for band_name in BAND_NAMES[dataset_name]
+        ]
         self.norm_stats = self.dataset.normalization_stats()
         self.in_channels = len(self.tmp_band_indices)
 

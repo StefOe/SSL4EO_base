@@ -1,6 +1,9 @@
 from pathlib import Path
 
 import wandb
+from lightly.utils.benchmarking import LinearClassifier, MetricCallback
+from lightly.utils.dist import print_rank_zero
+from lightly.utils.scheduler import CosineWarmupScheduler
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
@@ -8,10 +11,6 @@ from torch.nn import Module
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
-
-from lightly.utils.benchmarking import LinearClassifier, MetricCallback
-from lightly.utils.dist import print_rank_zero
-from lightly.utils.scheduler import CosineWarmupScheduler
 from torchvision.datasets import CIFAR10
 
 
@@ -37,14 +36,14 @@ class FinetuneEvalClassifier(LinearClassifier):
 
 
 def finetune_eval(
-    model: Module,
-    log_dir: Path,
-    batch_size_per_device: int,
-    num_workers: int,
-    accelerator: str,
-    devices: int,
-    precision: str,
-    num_classes: int,
+        model: Module,
+        log_dir: Path,
+        batch_size_per_device: int,
+        num_workers: int,
+        accelerator: str,
+        devices: int,
+        precision: str,
+        num_classes: int,
 ) -> None:
     """Runs fine-tune evaluation on the given model.
 

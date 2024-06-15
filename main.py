@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Sequence, Union
 
 import torch
+import wandb
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
@@ -17,14 +18,17 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as T
 from torchvision.datasets import CIFAR10
 
-import wandb
 from data import MODALITIES
 from data.mmearth_dataset import MultimodalDataset
 from eval.finetune import finetune_eval
 from eval.knn import knn_eval
 from eval.linear import linear_eval
 from methods.barlowtwins.module import BarlowTwins
-from methods.barlowtwins.transform import BarlowTwinsView2Transform, BarlowTwinsView1Transform, BarlowTwinsTransform
+from methods.barlowtwins.transform import (
+    BarlowTwinsView2Transform,
+    BarlowTwinsView1Transform,
+    BarlowTwinsTransform,
+)
 from methods.byol.module import BYOL
 from methods.byol.transform import BYOLTransform, BYOLView1Transform, BYOLView2Transform
 from methods.mae.module import MAE
@@ -56,13 +60,17 @@ METHODS = {
     "barlowtwins": {
         "model": BarlowTwins,
         "transform": BarlowTwinsTransform(
-            BarlowTwinsView1Transform(input_size=32), BarlowTwinsView2Transform(input_size=32)
+            BarlowTwinsView1Transform(input_size=32),
+            BarlowTwinsView2Transform(input_size=32),
         ),
     },
-    "simclr": {"model": SimCLR, "transform":SimCLRTransform(input_size=32)},
-    "byol": {"model": BYOL, "transform": BYOLTransform(
-        BYOLView1Transform(input_size=32), BYOLView2Transform(input_size=32)
-    )},
+    "simclr": {"model": SimCLR, "transform": SimCLRTransform(input_size=32)},
+    "byol": {
+        "model": BYOL,
+        "transform": BYOLTransform(
+            BYOLView1Transform(input_size=32), BYOLView2Transform(input_size=32)
+        ),
+    },
     "vicreg": {"model": VICReg, "transform": VICRegTransform(normalize=None)},
     "mae": {"model": MAE, "transform": MAETransform()},
 }
@@ -219,10 +227,12 @@ def pretrain(
     )
 
     # Setup validation data.
-    val_transform = T.Compose([
-        T.ToTensor(),
-        # T.Normalize(mean=IMAGENET_NORMALIZE["mean"], std=IMAGENET_NORMALIZE["std"]),
-    ])
+    val_transform = T.Compose(
+        [
+            T.ToTensor(),
+            # T.Normalize(mean=IMAGENET_NORMALIZE["mean"], std=IMAGENET_NORMALIZE["std"]),
+        ]
+    )
     val_dataset = CIFAR10(
         "datasets/cifar10", download=True, transform=val_transform, train=False
     )

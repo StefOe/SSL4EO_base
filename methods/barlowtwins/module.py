@@ -4,7 +4,6 @@ import torch
 from lightly.loss import BarlowTwinsLoss
 from lightly.models.modules import BarlowTwinsProjectionHead
 from lightly.models.utils import get_weight_decay_parameters
-from lightly.transforms import BYOLTransform, BYOLView1Transform, BYOLView2Transform
 from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler

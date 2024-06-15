@@ -2,9 +2,8 @@ from typing import Dict, List, Tuple, Union
 
 import torchvision.transforms as T
 from PIL.Image import Image
-from torch import Tensor
-
 from lightly.transforms.utils import IMAGENET_NORMALIZE
+from torch import Tensor
 
 
 class MAETransform:
@@ -33,10 +32,10 @@ class MAETransform:
     """
 
     def __init__(
-        self,
-        input_size: Union[int, Tuple[int, int]] = 224,
-        min_scale: float = 0.2,
-        normalize: Dict[str, List[float]] = IMAGENET_NORMALIZE,
+            self,
+            input_size: Union[int, Tuple[int, int]] = 224,
+            min_scale: float = 0.2,
+            normalize: Dict[str, List[float]] = IMAGENET_NORMALIZE,
     ):
         transforms = [
             T.RandomResizedCrop(

@@ -106,5 +106,3 @@ class SimCLR(EOModule):
             "interval": "step",
         }
         return [optimizer], [scheduler]
-
-
