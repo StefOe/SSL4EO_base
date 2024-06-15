@@ -69,15 +69,19 @@ class VICReg(EOModule):
         return loss
 
     def validation_step(
-        self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
+        self, batch: Dict, batch_idx: int
     ) -> Tensor:
-        images, targets = batch[0], batch[1]
+        images = batch[self.input_key]
         features = self.forward(images).flatten(start_dim=1)
-        cls_loss, cls_log = self.online_classifier.validation_step(
-            (features.detach(), targets), batch_idx
-        )
-        self.log_dict(cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets))
-        return cls_loss
+        if self.target_key is not None:
+            targets = batch[self.target_key]
+            cls_loss, cls_log = self.online_classifier.validation_step(
+                (features.detach(), targets), batch_idx
+            )
+            self.log_dict(cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets))
+            return cls_loss
+        else:
+            return None # Could return variance and covariance loss instead
 
     def configure_optimizers(self):
         # Don't use weight decay for batch norm, bias parameters, and classification

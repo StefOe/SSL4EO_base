@@ -15,8 +15,6 @@ from pytorch_lightning.callbacks import (
 )
 from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
-from torchvision import transforms as T
-from torchvision.datasets import CIFAR10
 
 import wandb
 from data.constants import (
@@ -270,22 +268,19 @@ def pretrain(
     )
 
     # Setup validation data.
-    val_transform = T.Compose(
-        [
-            T.ToTensor(),
-            # T.Normalize(mean=IMAGENET_NORMALIZE["mean"], std=IMAGENET_NORMALIZE["std"]),
-        ]
-    )
-    val_dataset = CIFAR10(
-        "datasets/cifar10", download=True, transform=val_transform, train=False
-    )
-    val_dataloader = DataLoader(
-        val_dataset,
-        batch_size=batch_size_per_device,
-        shuffle=False,
-        num_workers=num_workers,
-        persistent_workers=num_workers > 0,
-    )
+    val_dataset = MultimodalDataset(args, split="val", transform=None)
+    val_dataloader = None
+    if len(val_dataset) > 0:
+        val_dataloader = DataLoader(
+            val_dataset,
+            batch_size=batch_size_per_device,
+            shuffle=False,
+            num_workers=num_workers,
+            drop_last=False,
+            persistent_workers=num_workers > 0,
+        )
+    else:
+        print_rank_zero("No validation data found, skipping it...")
 
     # Train model.
     metric_callback = MetricCallback()
@@ -297,7 +292,7 @@ def pretrain(
             LearningRateMonitor(),
             # Stop if training loss diverges.
             EarlyStopping(monitor="train_loss", patience=int(1e12), check_finite=True),
-            # DeviceStatsMonitor(),
+            # ModelCheckpoint(ckpt_path, monitor="val_online_cls_top1", filename='{epoch}-{val_online_cls_top1:.2f}),
             metric_callback,
         ],
         logger=WandbLogger(
@@ -307,7 +302,6 @@ def pretrain(
             # log model config
             config=model.hparams,
         ),
-        # logger=TensorBoardLogger(save_dir=str(log_dir), name="pretrain"),
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         sync_batchnorm=accelerator != "cpu",  # Sync batchnorm is not supported on CPU.
@@ -321,8 +315,9 @@ def pretrain(
         val_dataloaders=val_dataloader,
         ckpt_path=ckpt_path,
     )
-    for metric in ["val_online_cls_top1", "val_online_cls_top5"]:
-        print_rank_zero(f"max {metric}: {max(metric_callback.val_metrics[metric])}")
+    if target_modality is not None and val_dataloader is not None:
+        for metric in ["val_online_cls_top1", "val_online_cls_top5"]:
+            print_rank_zero(f"max {metric}: {max(metric_callback.val_metrics[metric])}")
     wandb.finish()
 
 
