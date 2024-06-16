@@ -41,8 +41,11 @@ def test_mmearth_dataset(args, target, last_backbone_channel):
     args.log_dir.mkdir(exist_ok=True)
     args.target = target
     args.last_backbone_channel = last_backbone_channel
+    if target is None:
+        args.skip_knn_eval = args.skip_linear_eval = args.skip_finetune_eval = True
 
-    main(**vars(args), debug=True)
-
-    # cleanup
-    shutil.rmtree(args.log_dir, ignore_errors=True)
+    try:
+        main(**vars(args), debug=True)
+    finally:
+        # cleanup
+        shutil.rmtree(args.log_dir, ignore_errors=True)

@@ -35,13 +35,6 @@ class VICReg(EOModule):
         )
         self.criterion = VICRegLoss()
 
-
-
-    def forward(self, x: Tensor) -> Tensor:
-        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
-        features = self.backbone(x)
-        return self.global_pool(features)
-
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
         views = batch[self.input_key]
         features = self.forward(torch.cat(views)).flatten(start_dim=1)

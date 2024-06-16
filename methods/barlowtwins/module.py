@@ -39,11 +39,6 @@ class BarlowTwins(EOModule):
         self.projection_head = BarlowTwinsProjectionHead(self.last_backbone_channel)
         self.criterion = BarlowTwinsLoss(lambda_param=5e-3, gather_distributed=True)
 
-    def forward(self, x: Tensor) -> Tensor:
-        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
-        features = self.backbone(x)
-        return self.global_pool(features)
-
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
         # Forward pass and loss calculation.
         views = batch[self.input_key]
@@ -92,20 +87,7 @@ class BarlowTwins(EOModule):
                 }
             )
         optimizer = LARS(
-            [
-                {"name": "barlowtwins", "params": params},
-                {
-                    "name": "barlowtwins_no_weight_decay",
-                    "params": params_no_weight_decay,
-                    "weight_decay": 0.0,
-                    "lr": 0.0048 * lr_factor,
-                },
-                {
-                    "name": "online_classifier",
-                    "params": self.online_classifier.parameters(),
-                    "weight_decay": 0.0,
-                },
-            ],
+            param_list,
             lr=0.2 * lr_factor,
             momentum=0.9,
             weight_decay=1.5e-6,

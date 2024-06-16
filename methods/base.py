@@ -72,7 +72,9 @@ class EOModule(LightningModule):
 
     # these are the interfaces for torch and torchlightning to fill for each method
     def forward(self, x: Tensor) -> Tensor:
-        raise NotImplementedError
+        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
+        features = self.backbone(x)
+        return self.global_pool(features)
 
     def training_step(
         self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
