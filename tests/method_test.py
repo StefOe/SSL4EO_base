@@ -37,7 +37,7 @@ def args():
 
 @pytest.mark.parametrize("target", ["biome", "eco_region", None])
 @pytest.mark.parametrize("last_backbone_channel", [None, 128])
-def test_mmearth_dataset(args, target, last_backbone_channel):
+def test_methods(args, target, last_backbone_channel):
     args.log_dir.mkdir(exist_ok=True)
     args.target = target
     args.last_backbone_channel = last_backbone_channel
