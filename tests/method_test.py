@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import torch.cuda
 
-from main import main
+from main import main, METHODS
 
 
 @pytest.fixture
@@ -35,10 +35,12 @@ def args():
     return args
 
 
+@pytest.mark.parametrize("methods", [k for k in METHODS])
 @pytest.mark.parametrize("target", ["biome", "eco_region", None])
 @pytest.mark.parametrize("last_backbone_channel", [None, 128])
-def test_methods(args, target, last_backbone_channel):
+def test_methods(args, methods: str, target, last_backbone_channel):
     args.log_dir.mkdir(exist_ok=True)
+    args.methods = [methods]
     args.target = target
     args.last_backbone_channel = last_backbone_channel
     if target is None:

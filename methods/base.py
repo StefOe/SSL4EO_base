@@ -20,6 +20,9 @@ class BackboneExpander(nn.Module):
         ]  # model returns all intermediate results, only use last one
         return self.backbone_out(features)
 
+    def _get_name(self):
+        return f"{self.backbone.__class__.__name__} and {self.__class__.__name__}"
+
 
 class EOModule(LightningModule):
     def __init__(

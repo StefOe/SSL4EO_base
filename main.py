@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import Sequence, Union
 
@@ -33,6 +34,8 @@ from methods.barlowtwins.transform import (
 )
 from methods.byol.module import BYOL
 from methods.byol.transform import BYOLTransform, BYOLView1Transform, BYOLView2Transform
+from methods.mae.module import MAE
+from methods.mae.transform import MAETransform
 from methods.simclr.module import SimCLR
 from methods.simclr.transform import SimCLRTransform
 from methods.vicreg.module import VICReg
@@ -90,13 +93,15 @@ METHODS = {
     "byol": {
         "model": BYOL,
         "transform": BYOLTransform(
-            BYOLView1Transform(input_size=input_size), BYOLView2Transform(input_size=input_size)
+            BYOLView1Transform(input_size=input_size),
+            BYOLView2Transform(input_size=input_size),
         ),
     },
     "vicreg": {"model": VICReg, "transform": VICRegTransform(input_size=input_size)},
-
-    #TODO only 3 channel model works currently
-    # "mae": {"model": MAE, "transform": MAETransform(input_size=224)}, # this model requires 224 input
+    "mae": {
+        "model": partial(MAE, img_size=input_size),
+        "transform": MAETransform(input_size=input_size),
+    },
 }
 
 IN_MODALITIES = {
@@ -124,14 +129,9 @@ def main(
     skip_linear_eval: bool,
     skip_finetune_eval: bool,
     ckpt_path: Union[Path, None],
-    debug: bool=False,
+    debug: bool = False,
 ) -> None:
     assert data_dir.exists(), f"data folder does not exist: {data_dir}"
-    log_dir.mkdir(exist_ok=True)
-
-    torch.set_float32_matmul_precision("high")
-
-    method_names = methods or METHODS.keys()
 
     # store the requested channel combination
     input_modality = IN_MODALITIES[input_channel]
@@ -144,9 +144,20 @@ def main(
     if target is None or target.lower() == "none":
         target = None
         target_modality = None
+        assert skip_knn_eval and skip_linear_eval and skip_finetune_eval, (
+            "if no target is set, all offline evaluation needs to be skipped "
+            "(e.g., add --skip-linear-eval --skip-finetune-eval --skip-knn-eval)"
+        )
+
     else:
         target_modality = {target: MODALITIES_FULL[target]}
     num_classes = CLASSIFICATION_CLASSES[target]
+
+    log_dir.mkdir(exist_ok=True)
+
+    torch.set_float32_matmul_precision("high")
+
+    method_names = methods or METHODS.keys()
 
     for method in method_names:
         method_dir = (
@@ -207,7 +218,7 @@ def main(
                 num_workers=num_workers,
                 accelerator=accelerator,
                 devices=devices,
-                debug=debug
+                debug=debug,
             )
 
         if skip_linear_eval:
@@ -225,7 +236,7 @@ def main(
                 accelerator=accelerator,
                 devices=devices,
                 precision=precision,
-                debug=debug
+                debug=debug,
             )
 
         if skip_finetune_eval:
@@ -243,7 +254,7 @@ def main(
                 accelerator=accelerator,
                 devices=devices,
                 precision=precision,
-                debug=debug
+                debug=debug,
             )
 
 
@@ -261,7 +272,7 @@ def pretrain(
     devices: int,
     precision: str,
     ckpt_path: Union[Path, None],
-    debug:bool=False
+    debug: bool = False,
 ) -> None:
     print_rank_zero(f"Running pretraining for {method}...")
 
@@ -320,7 +331,7 @@ def pretrain(
         sync_batchnorm=accelerator != "cpu",  # Sync batchnorm is not supported on CPU.
         num_sanity_val_steps=0,
         check_val_every_n_epoch=1,  # TODO
-        fast_dev_run=debug
+        fast_dev_run=debug,
     )
 
     trainer.fit(

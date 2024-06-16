@@ -15,6 +15,7 @@ from methods import get_backbone
 
 
 class MAE(LightningModule):
+    # TODO maybe vit_base_patch8_112 is more appropriate since we halve the input size
     default_backbone = "vit_base_patch16_224"
 
     def __init__(
@@ -24,6 +25,7 @@ class MAE(LightningModule):
         backbone: str,
         batch_size_per_device: int,
         in_channels: int,
+        img_size: int,
         num_classes: int,
         last_backbone_channel: int = None,
     ):
@@ -42,18 +44,34 @@ class MAE(LightningModule):
             backbone = self.default_backbone
             print_rank_zero(f"Using default backbone: {backbone}")
 
+        self.img_size = img_size
         vit = get_backbone(backbone, in_channels=in_channels, feautures_only=False)
+        vit.default_cfg["input_size"] = (in_channels, img_size, img_size)
+        # overriding the patch embedding for new channel and image size
+        vit.patch_embed = vit.patch_embed.__class__(
+            img_size=img_size,
+            patch_size=vit.patch_embed.patch_size,
+            in_chans=in_channels,
+            embed_dim=vit.embed_dim,
+        )
+        # fixing learned position embedding
+        vit.num_patches = vit.patch_embed.num_patches
+        self.sequence_length = vit.patch_embed.num_patches + vit.num_prefix_tokens
+        vit.pos_embed = Parameter(
+            torch.randn(1, self.sequence_length, vit.embed_dim) * 0.02
+        )
+
         self.last_backbone_channel = vit.embed_dim
 
         decoder_embed_dim = 512
         self.mask_ratio = 0.75
         self.patch_size = vit.patch_embed.patch_size[0]
-        self.sequence_length = vit.patch_embed.num_patches + vit.num_prefix_tokens
         num_patches = vit.patch_embed.num_patches
         mask_token = Parameter(torch.zeros(1, 1, decoder_embed_dim))
         torch.nn.init.normal_(mask_token, std=0.02)
         self.backbone = MaskedVisionTransformerTIMM(vit=vit)
         self.decoder = MAEDecoderTIMM(
+            in_chans=in_channels,
             num_patches=num_patches,
             patch_size=self.patch_size,
             embed_dim=vit.embed_dim,
@@ -75,6 +93,9 @@ class MAE(LightningModule):
             )
 
     def forward(self, x: Tensor) -> Tensor:
+        # ensuring that the img size requirements are met (this should only be triggered for offline eval)
+        if x.shape[2] != self.img_size or x.shape[3] != self.img_size:
+            x = torch.nn.functional.interpolate(x, self.img_size)
         return self.backbone(images=x)
 
     def forward_encoder(self, images, idx_keep=None):
@@ -100,6 +121,7 @@ class MAE(LightningModule):
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
         images = batch[self.input_key]
         images = images[0]  # images is a list containing only one view
+
         batch_size = images.shape[0]
         idx_keep, idx_mask = utils.random_token_mask(
             size=(batch_size, self.sequence_length),
@@ -130,20 +152,24 @@ class MAE(LightningModule):
             loss = loss + cls_loss
         return loss
 
-    def validation_step(
-        self, batch: Dict, batch_idx: int
-    ) -> Tensor:
+    def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:
         images = batch[self.input_key]
         if self.target_key is not None:
+            # ensuring that the img size requirements are met
+            if images.shape[2] != self.img_size or images.shape[3] != self.img_size:
+                images = torch.nn.functional.interpolate(images, self.img_size)
+
             targets = batch[self.target_key]
             cls_features = self.forward(images).flatten(start_dim=1)
             cls_loss, cls_log = self.online_classifier.validation_step(
                 (cls_features.detach(), targets), batch_idx
             )
-            self.log_dict(cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets))
+            self.log_dict(
+                cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets)
+            )
             return cls_loss
         else:
-            return None # Could return variance and covariance loss instead
+            return None  # Could return variance and covariance loss instead
 
     def configure_optimizers(self):
         # Don't use weight decay for batch norm, bias parameters, and classification
@@ -157,14 +183,16 @@ class MAE(LightningModule):
                 "name": "mae_no_weight_decay",
                 "params": params_no_weight_decay,
                 "weight_decay": 0.0,
-            }
+            },
         ]
         if self.target_key is not None:
-            param_list.append({
+            param_list.append(
+                {
                     "name": "online_classifier",
                     "params": self.online_classifier.parameters(),
                     "weight_decay": 0.0,
-            })
+                }
+            )
         optimizer = AdamW(
             param_list,
             lr=1.5e-4 * self.batch_size_per_device * self.trainer.world_size / 256,
