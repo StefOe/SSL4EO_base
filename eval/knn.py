@@ -25,6 +25,7 @@ def knn_eval(
     accelerator: str,
     devices: int,
     num_classes: int,
+    debug:bool=False
 ) -> None:
     """Runs KNN evaluation on the given model.
 
@@ -73,6 +74,7 @@ def knn_eval(
     classifier = KNNClassifier(
         model=model,
         num_classes=num_classes,
+        knn_k=1 if debug else min(len(train_dataset), 200),
         feature_dtype=torch.float16,
     )
 
@@ -88,12 +90,14 @@ def knn_eval(
             project="ssl4eo",
             # log model config
             config=model.hparams,
+            offline=debug,
         ),
         callbacks=[
             metric_callback,
         ],
         # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
+        fast_dev_run=debug
     )
     trainer.fit(
         model=classifier,

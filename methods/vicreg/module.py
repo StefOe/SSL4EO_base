@@ -4,7 +4,6 @@ import torch
 from lightly.loss.vicreg_loss import VICRegLoss
 from lightly.models.modules.heads import VICRegProjectionHead
 from lightly.models.utils import get_weight_decay_parameters
-from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler
 from torch import Tensor
@@ -27,20 +26,16 @@ class VICReg(EOModule):
     ):
         self.save_hyperparameters()
         self.hparams["method"] = self.__class__.__name__
-        self.batch_size_per_device = batch_size_per_device
-        super().__init__(backbone, in_channels, last_backbone_channel)
+        super().__init__(
+            input_key, target_key, backbone, batch_size_per_device, in_channels, num_classes, last_backbone_channel
+        )
 
         self.projection_head = VICRegProjectionHead(
             self.last_backbone_channel, num_layers=2
         )
         self.criterion = VICRegLoss()
 
-        self.input_key = input_key
-        self.target_key = target_key
-        if target_key is not None:
-            self.online_classifier = OnlineLinearClassifier(
-                self.last_backbone_channel, num_classes=num_classes
-            )
+
 
     def forward(self, x: Tensor) -> Tensor:
         # x = nn.functional.interpolate(x, 224) # if fixed input size is required
@@ -67,21 +62,6 @@ class VICReg(EOModule):
             self.log_dict(cls_log, sync_dist=True, batch_size=len(targets))
             loss = loss + cls_loss
         return loss
-
-    def validation_step(
-        self, batch: Dict, batch_idx: int
-    ) -> Tensor:
-        images = batch[self.input_key]
-        features = self.forward(images).flatten(start_dim=1)
-        if self.target_key is not None:
-            targets = batch[self.target_key]
-            cls_loss, cls_log = self.online_classifier.validation_step(
-                (features.detach(), targets), batch_idx
-            )
-            self.log_dict(cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets))
-            return cls_loss
-        else:
-            return None # Could return variance and covariance loss instead
 
     def configure_optimizers(self):
         # Don't use weight decay for batch norm, bias parameters, and classification

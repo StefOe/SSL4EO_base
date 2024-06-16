@@ -15,7 +15,7 @@ from data.constants import NO_DATA_VAL, MODALITIES_FULL
 
 
 class MultimodalDataset(Dataset):
-    def __init__(self, args, split: str, transform, return_tuple:bool=False):
+    def __init__(self, args, split: str, transform, return_tuple: bool = False):
         # return_dict transform
         self.transform = transform
 

@@ -1,12 +1,9 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torchvision.transforms as T
 from PIL.Image import Image
-from lightly.transforms.gaussian_blur import GaussianBlur
 from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
-from lightly.transforms.solarize import RandomSolarization
-from lightly.transforms.utils import IMAGENET_NORMALIZE
 from torch import Tensor
 
 
@@ -30,7 +27,6 @@ class BarlowTwinsView1Transform:
             hf_prob: float = 0.5,
             rr_prob: float = 0.0,
             rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
-            normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
     ):
         color_jitter = T.ColorJitter(
             brightness=cj_strength * cj_bright,
@@ -44,14 +40,11 @@ class BarlowTwinsView1Transform:
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
             T.RandomVerticalFlip(p=vf_prob),
-            T.RandomApply([color_jitter], p=cj_prob),
-            T.RandomGrayscale(p=random_gray_scale),
-            GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
-            RandomSolarization(prob=solarization_prob),
-            T.ToTensor(),
+            # T.RandomApply([color_jitter], p=cj_prob),
+            # T.RandomGrayscale(p=random_gray_scale),
+            # GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
+            # RandomSolarization(prob=solarization_prob),
         ]
-        if normalize:
-            transform += [T.Normalize(mean=normalize["mean"], std=normalize["std"])]
         self.transform = T.Compose(transform)
 
     def __call__(self, image: Union[Tensor, Image]) -> Tensor:
@@ -90,7 +83,6 @@ class BarlowTwinsView2Transform:
             hf_prob: float = 0.5,
             rr_prob: float = 0.0,
             rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
-            normalize: Union[None, Dict[str, List[float]]] = IMAGENET_NORMALIZE,
     ):
         color_jitter = T.ColorJitter(
             brightness=cj_strength * cj_bright,
@@ -104,14 +96,11 @@ class BarlowTwinsView2Transform:
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
             T.RandomVerticalFlip(p=vf_prob),
-            T.RandomApply([color_jitter], p=cj_prob),
-            T.RandomGrayscale(p=random_gray_scale),
-            GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
-            RandomSolarization(prob=solarization_prob),
-            T.ToTensor(),
+            # T.RandomApply([color_jitter], p=cj_prob),
+            # T.RandomGrayscale(p=random_gray_scale),
+            # GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
+            # RandomSolarization(prob=solarization_prob),
         ]
-        if normalize:
-            transform += [T.Normalize(mean=normalize["mean"], std=normalize["std"])]
         self.transform = T.Compose(transform)
 
     def __call__(self, image: Union[Tensor, Image]) -> Tensor:
@@ -146,7 +135,6 @@ class BarlowTwinsTransform(MultiViewTransform):
         - Random gray scale
         - Gaussian blur
         - Solarization
-        - ImageNet normalization
 
     Note that SimCLR v1 and v2 use similar augmentations. In detail, BYOL has
     asymmetric gaussian blur and solarization. Furthermore, BYOL has weaker

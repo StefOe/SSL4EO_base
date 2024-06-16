@@ -33,8 +33,6 @@ from methods.barlowtwins.transform import (
 )
 from methods.byol.module import BYOL
 from methods.byol.transform import BYOLTransform, BYOLView1Transform, BYOLView2Transform
-from methods.mae.module import MAE
-from methods.mae.transform import MAETransform
 from methods.simclr.module import SimCLR
 from methods.simclr.transform import SimCLRTransform
 from methods.vicreg.module import VICReg
@@ -79,23 +77,26 @@ parser.add_argument("--skip-knn-eval", action="store_true")
 parser.add_argument("--skip-linear-eval", action="store_true")
 parser.add_argument("--skip-finetune-eval", action="store_true")
 
+input_size = 112
 METHODS = {
     "barlowtwins": {
         "model": BarlowTwins,
         "transform": BarlowTwinsTransform(
-            BarlowTwinsView1Transform(input_size=32),
-            BarlowTwinsView2Transform(input_size=32),
+            BarlowTwinsView1Transform(input_size=input_size),
+            BarlowTwinsView2Transform(input_size=input_size),
         ),
     },
-    "simclr": {"model": SimCLR, "transform": SimCLRTransform(input_size=32)},
+    "simclr": {"model": SimCLR, "transform": SimCLRTransform(input_size=input_size)},
     "byol": {
         "model": BYOL,
         "transform": BYOLTransform(
-            BYOLView1Transform(input_size=32), BYOLView2Transform(input_size=32)
+            BYOLView1Transform(input_size=input_size), BYOLView2Transform(input_size=input_size)
         ),
     },
-    "vicreg": {"model": VICReg, "transform": VICRegTransform()},
-    "mae": {"model": MAE, "transform": MAETransform()},
+    "vicreg": {"model": VICReg, "transform": VICRegTransform(input_size=input_size)},
+
+    #TODO only 3 channel model works currently
+    # "mae": {"model": MAE, "transform": MAETransform(input_size=224)}, # this model requires 224 input
 }
 
 IN_MODALITIES = {
@@ -123,6 +124,7 @@ def main(
     skip_linear_eval: bool,
     skip_finetune_eval: bool,
     ckpt_path: Union[Path, None],
+    debug: bool=False,
 ) -> None:
     assert data_dir.exists(), f"data folder does not exist: {data_dir}"
     log_dir.mkdir(exist_ok=True)
@@ -205,6 +207,7 @@ def main(
                 num_workers=num_workers,
                 accelerator=accelerator,
                 devices=devices,
+                debug=debug
             )
 
         if skip_linear_eval:
@@ -222,6 +225,7 @@ def main(
                 accelerator=accelerator,
                 devices=devices,
                 precision=precision,
+                debug=debug
             )
 
         if skip_finetune_eval:
@@ -239,6 +243,7 @@ def main(
                 accelerator=accelerator,
                 devices=devices,
                 precision=precision,
+                debug=debug
             )
 
 
@@ -256,6 +261,7 @@ def pretrain(
     devices: int,
     precision: str,
     ckpt_path: Union[Path, None],
+    debug:bool=False
 ) -> None:
     print_rank_zero(f"Running pretraining for {method}...")
 
@@ -307,12 +313,14 @@ def pretrain(
             project="ssl4eo",
             # log model config
             config=model.hparams,
+            offline=debug,
         ),
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         sync_batchnorm=accelerator != "cpu",  # Sync batchnorm is not supported on CPU.
         num_sanity_val_steps=0,
         check_val_every_n_epoch=1,  # TODO
+        fast_dev_run=debug
     )
 
     trainer.fit(

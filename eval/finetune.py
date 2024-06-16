@@ -52,6 +52,7 @@ def finetune_eval(
     devices: int,
     precision: str,
     num_classes: int,
+    debug:bool=False
 ) -> None:
     """Runs fine-tune evaluation on the given model.
 
@@ -125,10 +126,12 @@ def finetune_eval(
             project="ssl4eo",
             # log model config
             config=model.hparams,
+            offline=debug
         ),
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
+        fast_dev_run=debug,
     )
     classifier = FinetuneEvalClassifier(
         model=model,

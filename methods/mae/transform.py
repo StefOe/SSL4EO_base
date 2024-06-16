@@ -1,8 +1,7 @@
-from typing import Dict, List, Tuple, Union
+from typing import List, Tuple, Union
 
 import torchvision.transforms as T
 from PIL.Image import Image
-from lightly.transforms.utils import IMAGENET_NORMALIZE
 from torch import Tensor
 
 
@@ -26,8 +25,6 @@ class MAETransform:
             Size of the input image in pixels.
         min_scale:
             Minimum size of the randomized crop relative to the input_size.
-        normalize:
-            Dictionary with 'mean' and 'std' for torchvision.transforms.Normalize.
 
     """
 
@@ -35,17 +32,13 @@ class MAETransform:
             self,
             input_size: Union[int, Tuple[int, int]] = 224,
             min_scale: float = 0.2,
-            normalize: Dict[str, List[float]] = IMAGENET_NORMALIZE,
     ):
         transforms = [
             T.RandomResizedCrop(
                 input_size, scale=(min_scale, 1.0), interpolation=3
             ),  # 3 is bicubic
             T.RandomHorizontalFlip(),
-            T.ToTensor(),
         ]
-        if normalize:
-            transforms.append(T.Normalize(mean=normalize["mean"], std=normalize["std"]))
 
         self.transform = T.Compose(transforms)
 

@@ -69,8 +69,6 @@ class VICRegTransform(MultiViewTransform):
             images are rotated by a random angle in [min, max]. If rr_degrees is a
             single number, images are rotated by a random angle in
             [-rr_degrees, +rr_degrees]. All rotations are counter-clockwise.
-        normalize:
-            Dictionary with 'mean' and 'std' for torchvision.transforms.Normalize.
 
     """
 

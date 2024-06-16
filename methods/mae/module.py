@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Dict
 
 import torch
 from lightly.models import utils
@@ -17,11 +17,22 @@ from methods import get_backbone
 class MAE(LightningModule):
     default_backbone = "vit_base_patch16_224"
 
-    def __init__(self, backbone: str, batch_size_per_device: int, in_channels: int, num_classes: int,
-                 last_backbone_channel: int = None):
-        assert "vit" in backbone or backbone == "default", f"only vit backbone supported (given: {backbone})"
-        assert last_backbone_channel is None, \
-            f"change of last backbone channel is not supported (given: {last_backbone_channel})"
+    def __init__(
+        self,
+        input_key: str,
+        target_key: [str, None],
+        backbone: str,
+        batch_size_per_device: int,
+        in_channels: int,
+        num_classes: int,
+        last_backbone_channel: int = None,
+    ):
+        assert (
+            "vit" in backbone or backbone == "default"
+        ), f"only vit backbone supported (given: {backbone})"
+        assert (
+            last_backbone_channel is None
+        ), f"change of last backbone channel is not supported (given: {last_backbone_channel})"
 
         super().__init__()
         self.save_hyperparameters()
@@ -56,9 +67,12 @@ class MAE(LightningModule):
         )
         self.criterion = MSELoss()
 
-        self.online_classifier = OnlineLinearClassifier(
-            feature_dim=vit.embed_dim, num_classes=num_classes
-        )
+        self.input_key = input_key
+        self.target_key = target_key
+        if target_key is not None:
+            self.online_classifier = OnlineLinearClassifier(
+                feature_dim=vit.embed_dim, num_classes=num_classes
+            )
 
     def forward(self, x: Tensor) -> Tensor:
         return self.backbone(images=x)
@@ -83,10 +97,8 @@ class MAE(LightningModule):
         x_pred = self.decoder.predict(x_pred)
         return x_pred
 
-    def training_step(
-            self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
-    ) -> Tensor:
-        images, targets = batch[0], batch[1]
+    def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
+        images = batch[self.input_key]
         images = images[0]  # images is a list containing only one view
         batch_size = images.shape[0]
         idx_keep, idx_mask = utils.random_token_mask(
@@ -104,26 +116,34 @@ class MAE(LightningModule):
 
         loss = self.criterion(predictions, target)
         self.log(
-            "train_loss", loss, prog_bar=True, sync_dist=True, batch_size=len(targets)
+            "train_loss", loss, prog_bar=True, sync_dist=True, batch_size=len(images)
         )
 
-        cls_features = features[:, 0]
-        cls_loss, cls_log = self.online_classifier.training_step(
-            (cls_features.detach(), targets), batch_idx
-        )
-        self.log_dict(cls_log, sync_dist=True, batch_size=len(targets))
-        return loss + cls_loss
+        # Online linear evaluation.
+        if self.target_key is not None:
+            targets = batch[self.target_key]
+            cls_features = features[:, 0]
+            cls_loss, cls_log = self.online_classifier.training_step(
+                (cls_features.detach(), targets), batch_idx
+            )
+            self.log_dict(cls_log, sync_dist=True, batch_size=len(targets))
+            loss = loss + cls_loss
+        return loss
 
     def validation_step(
-            self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
+        self, batch: Dict, batch_idx: int
     ) -> Tensor:
-        images, targets = batch[0], batch[1]
-        cls_features = self.forward(images).flatten(start_dim=1)
-        cls_loss, cls_log = self.online_classifier.validation_step(
-            (cls_features.detach(), targets), batch_idx
-        )
-        self.log_dict(cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets))
-        return cls_loss
+        images = batch[self.input_key]
+        if self.target_key is not None:
+            targets = batch[self.target_key]
+            cls_features = self.forward(images).flatten(start_dim=1)
+            cls_loss, cls_log = self.online_classifier.validation_step(
+                (cls_features.detach(), targets), batch_idx
+            )
+            self.log_dict(cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets))
+            return cls_loss
+        else:
+            return None # Could return variance and covariance loss instead
 
     def configure_optimizers(self):
         # Don't use weight decay for batch norm, bias parameters, and classification
@@ -131,20 +151,22 @@ class MAE(LightningModule):
         params, params_no_weight_decay = utils.get_weight_decay_parameters(
             [self.backbone, self.decoder]
         )
-        optimizer = AdamW(
-            [
-                {"name": "mae", "params": params},
-                {
-                    "name": "mae_no_weight_decay",
-                    "params": params_no_weight_decay,
-                    "weight_decay": 0.0,
-                },
-                {
+        param_list = [
+            {"name": "mae", "params": params},
+            {
+                "name": "mae_no_weight_decay",
+                "params": params_no_weight_decay,
+                "weight_decay": 0.0,
+            }
+        ]
+        if self.target_key is not None:
+            param_list.append({
                     "name": "online_classifier",
                     "params": self.online_classifier.parameters(),
                     "weight_decay": 0.0,
-                },
-            ],
+            })
+        optimizer = AdamW(
+            param_list,
             lr=1.5e-4 * self.batch_size_per_device * self.trainer.world_size / 256,
             weight_decay=0.05,
             betas=(0.9, 0.95),
@@ -153,9 +175,9 @@ class MAE(LightningModule):
             "scheduler": CosineWarmupScheduler(
                 optimizer=optimizer,
                 warmup_epochs=(
-                        self.trainer.estimated_stepping_batches
-                        / self.trainer.max_epochs
-                        * 40
+                    self.trainer.estimated_stepping_batches
+                    / self.trainer.max_epochs
+                    * 40
                 ),
                 max_epochs=self.trainer.estimated_stepping_batches,
             ),

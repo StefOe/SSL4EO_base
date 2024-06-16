@@ -1,11 +1,10 @@
 import copy
-from typing import List, Tuple
+from typing import Tuple, Dict
 
 import torch
 from lightly.loss import NegativeCosineSimilarity
 from lightly.models.modules import BYOLPredictionHead, BYOLProjectionHead
 from lightly.models.utils import get_weight_decay_parameters, update_momentum
-from lightly.utils.benchmarking import OnlineLinearClassifier
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler, cosine_schedule
 from torch import Tensor
@@ -16,20 +15,33 @@ from methods.base import EOModule
 class BYOL(EOModule):
     default_backbone = "resnet50"
 
-    def __init__(self, backbone: str, batch_size_per_device: int, in_channels: int, num_classes: int,
-                 last_backbone_channel: int = None) -> None:
+    def __init__(
+        self,
+        input_key: str,
+        target_key: [str, None],
+        backbone: str,
+        batch_size_per_device: int,
+        in_channels: int,
+        num_classes: int,
+        last_backbone_channel: int = None,
+    ) -> None:
         self.save_hyperparameters()
         self.hparams["method"] = self.__class__.__name__
-        self.batch_size_per_device = batch_size_per_device
-        super().__init__(backbone, in_channels, last_backbone_channel)
+        super().__init__(
+            input_key,
+            target_key,
+            backbone,
+            batch_size_per_device,
+            in_channels,
+            num_classes,
+            last_backbone_channel,
+        )
 
         self.projection_head = BYOLProjectionHead(self.last_backbone_channel)
         self.prediction_head = BYOLPredictionHead()
         self.teacher_backbone = copy.deepcopy(self.backbone)
         self.teacher_projection_head = BYOLProjectionHead(self.last_backbone_channel)
         self.criterion = NegativeCosineSimilarity()
-
-        self.online_classifier = OnlineLinearClassifier(self.last_backbone_channel, num_classes=num_classes)
 
     def forward(self, x: Tensor) -> Tensor:
         # x = nn.functional.interpolate(x, 224) # if fixed input size is required
@@ -48,9 +60,7 @@ class BYOL(EOModule):
         projections = self.teacher_projection_head(features)
         return projections
 
-    def training_step(
-            self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
-    ) -> Tensor:
+    def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
         # Momentum update teacher.
         # Settings follow original code for 100 epochs which are slightly different
         # from the paper, see:
@@ -65,7 +75,7 @@ class BYOL(EOModule):
         update_momentum(self.projection_head, self.teacher_projection_head, m=momentum)
 
         # Forward pass and loss calculation.
-        views, targets = batch[0], batch[1]
+        views = batch[self.input_key]
         teacher_projections_0 = self.forward_teacher(views[0])
         teacher_projections_1 = self.forward_teacher(views[1])
         student_features_0, student_predictions_0 = self.forward_student(views[0])
@@ -77,26 +87,18 @@ class BYOL(EOModule):
         # views.
         loss = loss_0 + loss_1
         self.log(
-            "train_loss", loss, prog_bar=True, sync_dist=True, batch_size=len(targets)
+            "train_loss", loss, prog_bar=True, sync_dist=True, batch_size=len(views[0])
         )
 
         # Online linear evaluation.
-        cls_loss, cls_log = self.online_classifier.training_step(
-            (student_features_0.detach(), targets), batch_idx
-        )
-        self.log_dict(cls_log, sync_dist=True, batch_size=len(targets))
-        return loss + cls_loss
-
-    def validation_step(
-            self, batch: Tuple[Tensor, Tensor, List[str]], batch_idx: int
-    ) -> Tensor:
-        images, targets = batch[0], batch[1]
-        features = self.forward(images).flatten(start_dim=1)
-        cls_loss, cls_log = self.online_classifier.validation_step(
-            (features.detach(), targets), batch_idx
-        )
-        self.log_dict(cls_log, prog_bar=True, sync_dist=True, batch_size=len(targets))
-        return cls_loss
+        if self.target_key is not None:
+            targets = batch[self.target_key]
+            cls_loss, cls_log = self.online_classifier.training_step(
+                (student_features_0.detach(), targets), batch_idx
+            )
+            self.log_dict(cls_log, sync_dist=True, batch_size=len(targets))
+            loss = loss + cls_loss
+        return loss
 
     def configure_optimizers(self):
         # Don't use weight decay for batch norm, bias parameters, and classification
@@ -108,20 +110,24 @@ class BYOL(EOModule):
                 self.prediction_head,
             ]
         )
-        optimizer = LARS(
-            [
-                {"name": "byol", "params": params},
-                {
-                    "name": "byol_no_weight_decay",
-                    "params": params_no_weight_decay,
-                    "weight_decay": 0.0,
-                },
+        param_list = [
+            {"name": "byol", "params": params},
+            {
+                "name": "byol_no_weight_decay",
+                "params": params_no_weight_decay,
+                "weight_decay": 0.0,
+            },
+        ]
+        if self.target_key is not None:
+            param_list.append(
                 {
                     "name": "online_classifier",
                     "params": self.online_classifier.parameters(),
                     "weight_decay": 0.0,
-                },
-            ],
+                }
+            )
+        optimizer = LARS(
+            param_list,
             # Settings follow original code for 100 epochs which are slightly different
             # from the paper, see:
             # https://github.com/deepmind/deepmind-research/blob/f5de0ede8430809180254ee957abf36ed62579ef/byol/configs/byol.py#L21-L23
