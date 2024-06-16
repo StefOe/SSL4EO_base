@@ -43,11 +43,6 @@ class BYOL(EOModule):
         self.teacher_projection_head = BYOLProjectionHead(self.last_backbone_channel)
         self.criterion = NegativeCosineSimilarity()
 
-    def forward(self, x: Tensor) -> Tensor:
-        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
-        features = self.backbone(x)
-        return self.global_pool(features)
-
     def forward_student(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         features = self(x).flatten(start_dim=1)
         projections = self.projection_head(features)
@@ -56,7 +51,7 @@ class BYOL(EOModule):
 
     @torch.no_grad()
     def forward_teacher(self, x: Tensor) -> Tensor:
-        features = self.teacher_backbone(x).flatten(start_dim=1)
+        features = self.global_pool(self.teacher_backbone(x)).flatten(start_dim=1)
         projections = self.teacher_projection_head(features)
         return projections
 
