@@ -24,5 +24,8 @@ dependencies:
   - h5py
   - pip
   - pip:
+      - pytest
       - lightly
-      - tensorboardX
+      - ipdb
+      - geobench
+      - black

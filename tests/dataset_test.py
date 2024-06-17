@@ -6,6 +6,7 @@ import pytest
 from torch import Tensor
 
 from data import constants
+from data.geobench_dataset import GeobenchDataset
 from data.mmearth_dataset import MultimodalDataset
 
 
@@ -61,3 +62,44 @@ def test_mmearth_dataset(args, split, modalities):
         )
 
     # no tests for val/test currently
+
+
+@pytest.mark.parametrize("split", ["train", "val", "test"])
+@pytest.mark.parametrize(
+    "dataset_name",
+    [
+        "m-eurosat",
+        "m-so2sat",
+        "m-bigearthnet",
+        "m-brick-kiln",
+        "m-cashew-plant",
+        "m-SA-crop-type",
+    ],
+)
+def test_geobench_dataset(args, split, dataset_name):
+    if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet", "m-brick-kiln"]:
+        dataset = GeobenchDataset(
+            dataset_name=dataset_name,
+            split=split,
+            transform=None,
+            benchmark_name="classification",
+        )
+    elif dataset_name in ["m-cashew-plant", "m-SA-crop-type"]:
+        dataset = GeobenchDataset(
+            dataset_name=dataset_name,
+            split=split,
+            transform=None,
+            benchmark_name="segmentation",
+        )
+    else:
+        raise NotImplementedError
+
+    assert len(dataset) > 0, f"Dataset '{dataset_name}' should not be empty"
+
+    n_channel = dataset[0][0].shape[0]
+    expected = 12
+    if dataset_name == "m-brick-kiln":
+        expected = 3
+    assert (
+        n_channel == expected
+    ), f"Dataset '{dataset_name}' should have {expected} channels, found {n_channel}"
