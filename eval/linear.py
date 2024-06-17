@@ -28,7 +28,7 @@ def linear_eval(
     devices: int,
     precision: str,
     num_classes: int,
-    debug:bool=False
+    debug: bool = False,
 ) -> None:
     """Runs a linear evaluation on the given model.
 
@@ -105,13 +105,13 @@ def linear_eval(
             project="ssl4eo",
             # log model config
             config=model.hparams,
-            offline=debug
+            offline=debug,
         ),
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
         enable_checkpointing=False,
-        fast_dev_run=debug
+        fast_dev_run=debug,
     )
     classifier = LinearClassifier(
         model=model,

@@ -52,7 +52,7 @@ def finetune_eval(
     devices: int,
     precision: str,
     num_classes: int,
-    debug:bool=False
+    debug: bool = False
 ) -> None:
     """Runs fine-tune evaluation on the given model.
 

@@ -25,7 +25,7 @@ def knn_eval(
     accelerator: str,
     devices: int,
     num_classes: int,
-    debug:bool=False
+    debug: bool = False
 ) -> None:
     """Runs KNN evaluation on the given model.
 
