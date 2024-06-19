@@ -228,6 +228,7 @@ def main(
                 if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet"]:
                     geobench_clf(
                         model=model,
+                        method="linear",
                         dataset_name=dataset_name,
                         partition=partition,
                         log_dir=method_dir,
