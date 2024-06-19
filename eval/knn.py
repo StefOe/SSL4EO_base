@@ -107,11 +107,11 @@ def knn_eval(
     if val_dataloader is None:
         for metric in ["train_top1", "train_top5"]:
             print_rank_zero(
-                f"max finetune {metric}: {max(metric_callback.train_metrics[metric])}"
+                f"max knn {metric}: {max(metric_callback.train_metrics[metric])}"
             )
     else:
         for metric in ["val_top1", "val_top5"]:
             print_rank_zero(
-                f"max finetune {metric}: {max(metric_callback.val_metrics[metric])}"
+                f"max knn {metric}: {max(metric_callback.val_metrics[metric])}"
             )
     wandb.finish()

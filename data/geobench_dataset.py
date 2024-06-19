@@ -10,13 +10,15 @@ with open("data/BAND_NAMES.json", "r") as f:
 
 
 class GeobenchDataset(Dataset):
-    '''paper introducing Geobench: https://arxiv.org/abs/2306.03831'''
+    """paper introducing Geobench: https://arxiv.org/abs/2306.03831"""
+
     def __init__(
         self,
-        dataset_name=None,
-        split="train",
+        dataset_name: str,
+        split: str = "train",
         transform=None,
-        benchmark_name="classification",
+        partition: str = "default",
+        benchmark_name: str = "classification",
     ):
         if split == "val":
             split = "valid"
@@ -34,7 +36,9 @@ class GeobenchDataset(Dataset):
         self.transform = transform
         self.dataset_name = dataset_name
         self.dataset = task.get_dataset(
-            split=split, band_names=BAND_NAMES[dataset_name]
+            split=split,
+            band_names=BAND_NAMES[dataset_name],
+            partition_name=partition,
         )
         self.dataset_dir = task.get_dataset_dir()
         if hasattr(task.label_type, "class_names"):

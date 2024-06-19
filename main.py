@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from datetime import datetime
 from functools import partial
+from itertools import product
 from pathlib import Path
 from typing import Sequence, Union
 
@@ -24,6 +25,7 @@ from data.constants import (
 )
 from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
 from eval.finetune import finetune_eval
+from eval.geobench_clf import geobench_clf
 from eval.knn import knn_eval
 from eval.linear import linear_eval
 from methods.barlowtwins.module import BarlowTwins
@@ -79,6 +81,19 @@ parser.add_argument("--last-backbone-channel", type=int, default=None)
 parser.add_argument("--skip-knn-eval", action="store_true")
 parser.add_argument("--skip-linear-eval", action="store_true")
 parser.add_argument("--skip-finetune-eval", action="store_true")
+parser.add_argument(
+    "--geobench-datasets",
+    type=str,
+    nargs="+",
+    help="classification: 'm-eurosat', 'm-so2sat', 'm-bigearthnet'; "
+    "segmentation: 'm-cashew-plant', 'm-SA-crop-type'",
+)
+parser.add_argument(
+    "--geobench-partitions",
+    type=str,
+    nargs="+",
+    help="How much data to train on (default: 'default')",
+)
 
 input_size = 112
 METHODS = {
@@ -128,6 +143,8 @@ def main(
     skip_knn_eval: bool,
     skip_linear_eval: bool,
     skip_finetune_eval: bool,
+    geobench_datasets: Union[Sequence[str], None],
+    geobench_partitions: Union[Sequence[str], None],
     ckpt_path: Union[Path, None],
     debug: bool = False,
 ) -> None:
@@ -256,6 +273,31 @@ def main(
                 precision=precision,
                 debug=debug,
             )
+
+        if not geobench_datasets:
+            print_rank_zero("Skipping geobench eval.")
+        else:
+            geobench_partitions = geobench_partitions or ["default"]
+            for dataset_name, partition in product(
+                geobench_datasets, geobench_partitions
+            ):
+                if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet"]:
+                    geobench_clf(
+                        model=model,
+                        dataset_name=dataset_name,
+                        partition=partition,
+                        log_dir=method_dir,
+                        batch_size_per_device=batch_size_per_device,
+                        num_workers=num_workers,
+                        accelerator=accelerator,
+                        devices=devices,
+                        precision=precision,
+                        debug=debug,
+                    )
+                else:
+                    raise NotImplementedError(
+                        f"Geobench dataset '{dataset_name}' is not implemented."
+                    )
 
 
 def pretrain(
