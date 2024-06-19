@@ -218,8 +218,34 @@ def main(
                 ckpt_path=ckpt_path,
             )
 
+        if not geobench_datasets:
+            print_rank_zero("Skipping geobench eval.")
+        else:
+            geobench_partitions = geobench_partitions or ["default"]
+            for dataset_name, partition in product(
+                geobench_datasets, geobench_partitions
+            ):
+                if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet"]:
+                    geobench_clf(
+                        model=model,
+                        dataset_name=dataset_name,
+                        partition=partition,
+                        log_dir=method_dir,
+                        batch_size_per_device=batch_size_per_device,
+                        num_workers=num_workers,
+                        accelerator=accelerator,
+                        devices=devices,
+                        precision=precision,
+                        debug=debug,
+                    )
+                else:
+                    raise NotImplementedError(
+                        f"Geobench dataset '{dataset_name}' is not implemented."
+                    )
+
         if target is None:
             print_rank_zero("Skipping offline eval because no target is selected.")
+            return
 
         if skip_knn_eval:
             print_rank_zero("Skipping KNN eval.")
@@ -273,31 +299,6 @@ def main(
                 precision=precision,
                 debug=debug,
             )
-
-        if not geobench_datasets:
-            print_rank_zero("Skipping geobench eval.")
-        else:
-            geobench_partitions = geobench_partitions or ["default"]
-            for dataset_name, partition in product(
-                geobench_datasets, geobench_partitions
-            ):
-                if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet"]:
-                    geobench_clf(
-                        model=model,
-                        dataset_name=dataset_name,
-                        partition=partition,
-                        log_dir=method_dir,
-                        batch_size_per_device=batch_size_per_device,
-                        num_workers=num_workers,
-                        accelerator=accelerator,
-                        devices=devices,
-                        precision=precision,
-                        debug=debug,
-                    )
-                else:
-                    raise NotImplementedError(
-                        f"Geobench dataset '{dataset_name}' is not implemented."
-                    )
 
 
 def pretrain(
