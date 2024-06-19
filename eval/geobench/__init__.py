@@ -6,6 +6,7 @@ from lightly.utils.scheduler import CosineWarmupScheduler
 from torch import Tensor
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import SGD
+from torchmetrics.functional import accuracy
 
 
 class LinearMultiLabelClassifier(LinearClassifier):
@@ -22,6 +23,7 @@ class LinearMultiLabelClassifier(LinearClassifier):
         super().__init__(
             model, batch_size_per_device, feature_dim, num_classes, (-1,), freeze_model
         )
+        self.num_classes = num_classes
         self.criterion = BCEWithLogitsLoss()
 
     def shared_step(
@@ -29,10 +31,24 @@ class LinearMultiLabelClassifier(LinearClassifier):
     ) -> Tuple[Tensor, Dict[int, Tensor]]:
         images, targets = batch[0], batch[1]
         predictions = self.forward(images)
-        loss = self.criterion(predictions, targets)
-        predicted_labels = (predictions > 0).int()
-        import ipdb; ipdb.set_trace()
-        acc = None
+        loss = self.criterion(predictions, targets.to(predictions.dtype))
+        acc_glob = accuracy(
+            predictions,
+            targets,
+            task="multilabel",
+            num_labels=self.num_classes,
+            average="micro",
+        )
+        acc_cls = accuracy(
+            predictions,
+            targets,
+            task="multilabel",
+            num_labels=self.num_classes,
+            average="none",
+        )
+        acc = {str(i): value.item() for i, value in enumerate(acc_cls)}
+        acc["global"] = acc_glob.item()
+
         return loss, acc
 
     def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
