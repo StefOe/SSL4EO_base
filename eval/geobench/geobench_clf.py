@@ -6,12 +6,13 @@ from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
-from torch.nn import Module, BCEWithLogitsLoss
+from torch.nn import Module
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
 
 from data.geobench_dataset import GeobenchDataset
 from eval.finetune import FinetuneEvalClassifier
+from eval.geobench import LinearMultiLabelClassifier
 
 
 def geobench_clf(
@@ -118,25 +119,15 @@ def geobench_clf(
         num_sanity_val_steps=0,
         fast_dev_run=debug,
     )
-    if method == "linear":
-        classifier = LinearClassifier(
-            model=model,
-            batch_size_per_device=batch_size_per_device,
-            feature_dim=model.last_backbone_channel,
-            num_classes=train_dataset.num_classes,
-            freeze_model=True,
-        )
-    else:
-        classifier = FinetuneEvalClassifier(
-            model=model,
-            batch_size_per_device=batch_size_per_device,
-            feature_dim=model.last_backbone_channel,
-            num_classes=train_dataset.num_classes,
-            freeze_model=False,
-        )
-    if dataset_name == "m-bigearthnet":
-        # multi-label probel not multiclass, so BCE for trianing
-        classifier.criterion = BCEWithLogitsLoss
+
+    classifier = get_geobench_classifier(
+        model,
+        method,
+        is_multi_label=dataset_name == "m-bigearthnet",
+        num_classes=train_dataset.num_classes,
+        batch_size_per_device=batch_size_per_device,
+    )
+
     trainer.fit(
         model=classifier,
         train_dataloaders=train_dataloader,
@@ -153,3 +144,35 @@ def geobench_clf(
                 f"max {dataset_name} {method} {metric}: {max(metric_callback.val_metrics[metric])}"
             )
     wandb.finish()
+
+
+def get_geobench_classifier(
+    model: Module,
+    method: str,
+    is_multi_label: bool,
+    num_classes: int,
+    batch_size_per_device: int,
+):
+    if method == "linear":
+        # if dataset is multi-label, we need a different classifier class
+        clf_class = LinearMultiLabelClassifier if is_multi_label else LinearClassifier
+
+        classifier = clf_class(
+            model=model,
+            batch_size_per_device=batch_size_per_device,
+            feature_dim=model.last_backbone_channel,
+            num_classes=num_classes,
+            freeze_model=True,
+        )
+    else:
+        # if dataset is multi-label, we need a different classifier class
+        clf_class = FinetuneEvalClassifier if is_multi_label else FinetuneEvalClassifier
+
+        classifier = clf_class(
+            model=model,
+            batch_size_per_device=batch_size_per_device,
+            feature_dim=model.last_backbone_channel,
+            num_classes=num_classes,
+            freeze_model=False,
+        )
+    return classifier

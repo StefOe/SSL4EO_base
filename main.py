@@ -25,7 +25,7 @@ from data.constants import (
 )
 from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
 from eval.finetune import finetune_eval
-from eval.geobench_clf import geobench_clf
+from eval.geobench.geobench_clf import geobench_clf
 from eval.knn import knn_eval
 from eval.linear import linear_eval
 from methods.barlowtwins.module import BarlowTwins
