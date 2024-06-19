@@ -27,6 +27,8 @@ def args():
     args.input_channel = "all"
     args.target = "biome"
     args.last_backbone_channel = None
+    args.geobench_dataset = None
+    args.geobench_partition = "default"
     args.skip_knn_eval = False
     args.skip_linear_eval = False
     args.skip_finetune_eval = False
@@ -34,6 +36,19 @@ def args():
 
     return args
 
+@pytest.mark.parametrize("methods", [k for k in METHODS])
+@pytest.mark.parametrize("geobench_dataset", ["m-eurosat", "m-so2sat", "m-bigearthnet"])
+def test_geobench_with_methods(args, methods: str, geobench_dataset: str):
+    args.log_dir.mkdir(exist_ok=True)
+    args.methods = [methods]
+    args.target = None
+    args.geobench_dataset = geobench_dataset
+
+    try:
+        main(**vars(args), debug=True)
+    finally:
+        # cleanup
+        shutil.rmtree(args.log_dir, ignore_errors=True)
 
 @pytest.mark.parametrize("methods", [k for k in METHODS])
 @pytest.mark.parametrize("target", ["biome", "eco_region", None])
@@ -45,8 +60,6 @@ def test_methods(args, methods: str, target, last_backbone_channel):
     args.methods = [methods]
     args.target = target
     args.last_backbone_channel = last_backbone_channel
-    if target is None:
-        args.skip_knn_eval = args.skip_linear_eval = args.skip_finetune_eval = True
 
     try:
         main(**vars(args), debug=True)
