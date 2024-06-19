@@ -6,7 +6,7 @@ from lightly.utils.scheduler import CosineWarmupScheduler
 from torch import Tensor
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import SGD
-from torchmetrics.functional import accuracy
+from torchmetrics.functional import accuracy, f1_score
 
 
 class LinearMultiLabelClassifier(LinearClassifier):
@@ -28,10 +28,11 @@ class LinearMultiLabelClassifier(LinearClassifier):
 
     def shared_step(
         self, batch: Tuple[Tensor, ...], batch_idx: int
-    ) -> Tuple[Tensor, Dict[int, Tensor]]:
+    ) -> Tuple[Tensor, Dict[str, Tensor]]:
         images, targets = batch[0], batch[1]
         predictions = self.forward(images)
         loss = self.criterion(predictions, targets.to(predictions.dtype))
+
         acc_glob = accuracy(
             predictions,
             targets,
@@ -46,15 +47,32 @@ class LinearMultiLabelClassifier(LinearClassifier):
             num_labels=self.num_classes,
             average="none",
         )
-        acc = {str(i): value.item() for i, value in enumerate(acc_cls)}
-        acc["global"] = acc_glob.item()
+        metrics = {f"acc cls-{i}": value.item() for i, value in enumerate(acc_cls)}
+        metrics["acc"] = acc_glob.item()
 
-        return loss, acc
+        f1_glob = f1_score(
+            predictions,
+            targets,
+            task="multilabel",
+            num_labels=self.num_classes,
+            average="micro",
+        )
+        f1_cls = f1_score(
+            predictions,
+            targets,
+            task="multilabel",
+            num_labels=self.num_classes,
+            average="none",
+        )
+        metrics.update({f"f1 cls-{i}": value.item() for i, value in enumerate(f1_cls)})
+        metrics["f1"] = f1_glob.item()
+
+        return loss, metrics
 
     def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
-        loss, acc = self.shared_step(batch=batch, batch_idx=batch_idx)
+        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
         batch_size = len(batch[1])
-        log_dict = {f"train_acc_cls-{k}": acc for k, acc in acc.items()}
+        log_dict = {f"train_{metric}": value for metric, value in metrics.items()}
         self.log(
             "train_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size
         )
@@ -62,9 +80,9 @@ class LinearMultiLabelClassifier(LinearClassifier):
         return loss
 
     def validation_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
-        loss, acc = self.shared_step(batch=batch, batch_idx=batch_idx)
+        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
         batch_size = len(batch[1])
-        log_dict = {f"val_acc_cls-{k}": acc for k, acc in acc.items()}
+        log_dict = {f"val_{metric}": value for metric, value in metrics.items()}
         self.log("val_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size)
         self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
         return loss
