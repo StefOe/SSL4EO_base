@@ -11,7 +11,7 @@ from torch import Tensor
 from torch.nn import MSELoss, Parameter
 from torch.optim import AdamW
 
-from methods import get_backbone
+from methods.modules.base import get_backbone
 
 
 class MAE(LightningModule):

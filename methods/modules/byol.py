@@ -9,7 +9,7 @@ from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler, cosine_schedule
 from torch import Tensor
 
-from methods.base import EOModule
+from methods.modules.base import EOModule
 
 
 class BYOL(EOModule):

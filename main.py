@@ -28,94 +28,158 @@ from eval.finetune import finetune_eval
 from eval.geobench.geobench_clf import geobench_clf
 from eval.knn import knn_eval
 from eval.linear import linear_eval
-from methods.barlowtwins.module import BarlowTwins
-from methods.barlowtwins.transform import (
-    BarlowTwinsView2Transform,
-    BarlowTwinsView1Transform,
-    BarlowTwinsTransform,
-)
-from methods.byol.module import BYOL
-from methods.byol.transform import BYOLTransform, BYOLView1Transform, BYOLView2Transform
-from methods.mae.module import MAE
-from methods.mae.transform import MAETransform
-from methods.simclr.module import SimCLR
-from methods.simclr.transform import SimCLRTransform
-from methods.vicreg.module import VICReg
-from methods.vicreg.transform import VICRegTransform
+from methods import modules
+from methods import transforms
 
+# Argparser for all your configuration needs
 parser = ArgumentParser("MMEarth Benchmark")
-parser.add_argument("--data-dir", type=Path, default="./datasets/data_1k")
-parser.add_argument("--log-dir", type=Path, default="experiment_logs")
-parser.add_argument("--batch-size-per-device", type=int, default=128)
+
+parser.add_argument(
+    "--data-dir",
+    type=Path,
+    default="./datasets/data_1k",
+    help="Path to the MMEarth dataset folder (default: './datasets/data_1k')."
+)
+parser.add_argument(
+    "--log-dir",
+    type=Path,
+    default="experiment_logs",
+    help="Path to the directory where logs will be stored (default: 'experiment_logs')."
+)
+parser.add_argument(
+    "--batch-size-per-device",
+    type=int,
+    default=128,
+    help="Batch size per device (default: 128)."
+)
 parser.add_argument(
     "--epochs",
     type=int,
     default=100,
-    help="Defines number of epochs for pretraining. 0 epochs skips directly to eval steps "
-    "(good for loading and testing models)",
+    help="Number of epochs for pretraining. Set to 0 to skip pretraining and go straight to evaluation (default: 100)."
 )
-parser.add_argument("--num-workers", type=int, default=8)
-parser.add_argument("--accelerator", type=str, default="gpu")
-parser.add_argument("--devices", type=int, default=1)
-parser.add_argument("--precision", type=str, default="16-mixed")
-parser.add_argument("--ckpt-path", type=Path, default=None)
-parser.add_argument("--compile-model", action="store_true")
-parser.add_argument("--methods", type=str, nargs="+")
-parser.add_argument("--backbone", type=str, default="default")
+parser.add_argument(
+    "--num-workers",
+    type=int,
+    default=8,
+    help="Number of threads to use for data loading (default: 8)."
+)
+parser.add_argument(
+    "--accelerator",
+    type=str,
+    default="gpu",
+    help="Type of accelerator to use: 'cpu', 'gpu', 'tpu', 'ipu', 'hpu', 'mps', or 'auto' (default: 'gpu')."
+)
+parser.add_argument(
+    "--devices",
+    type=int,
+    default=1,
+    help="Number of devices to use (default: 1)."
+)
+parser.add_argument(
+    "--precision",
+    type=str,
+    default="16-mixed",
+    help="Model precision: '16-mixed', '32', etc. (default: '16-mixed')."
+)
+parser.add_argument(
+    "--ckpt-path",
+    type=Path,
+    default=None,
+    help="Path to a checkpoint file to resume training or evaluate (default: None)."
+)
+parser.add_argument(
+    "--compile-model",
+    action="store_true",
+    help="If set, the model will be compiled for optimization."
+)
+parser.add_argument(
+    "--methods",
+    type=str,
+    nargs="+",
+    help="SSL methods to apply: 'byol', 'simclr', 'mae', 'barlowtwins', 'vicreg'."
+)
+parser.add_argument(
+    "--backbone",
+    type=str,
+    default="default",
+    help="Encoder architecture to use (default: 'default')."
+)
 parser.add_argument(
     "--input-channel",
     "-i",
     type=str,
     default="all",
-    help="e.g. 'all', 'rgb' (default: 'all')",
+    help="Sentinel-2 input channel selection: 'all', 'rgb' (default: 'all')."
 )
 parser.add_argument(
     "--target",
     "-t",
     type=str,
     default="biome",
-    help="select a target modality for the online classifier "
-    "(e.g., 'biome', 'eco_region')",
+    help="Target modality for the online classifier: 'biome', 'eco_region' (default: 'biome')."
 )
-parser.add_argument("--last-backbone-channel", type=int, default=None)
-parser.add_argument("--skip-knn-eval", action="store_true")
-parser.add_argument("--skip-linear-eval", action="store_true")
-parser.add_argument("--skip-finetune-eval", action="store_true")
+parser.add_argument(
+    "--last-backbone-channel",
+    type=int,
+    default=None,
+    help="If provided, adds another backbone layer to change output size (default: None)."
+)
+parser.add_argument(
+    "--skip-knn-eval",
+    action="store_true",
+    help="If set, KNN evaluation will be skipped."
+)
+parser.add_argument(
+    "--skip-linear-eval",
+    action="store_true",
+    help="If set, linear evaluation will be skipped."
+)
+parser.add_argument(
+    "--skip-finetune-eval",
+    action="store_true",
+    help="If set, fine-tuning evaluation will be skipped."
+)
 parser.add_argument(
     "--geobench-datasets",
     type=str,
     nargs="+",
-    help="classification: 'm-eurosat', 'm-so2sat', 'm-bigearthnet'; "
-    "segmentation: 'm-cashew-plant', 'm-SA-crop-type'",
+    help="GeoBench datasets for classification: 'm-eurosat', 'm-so2sat', 'm-bigearthnet'; for segmentation: 'm-cashew-plant', 'm-SA-crop-type'."
 )
 parser.add_argument(
     "--geobench-partitions",
     type=str,
     nargs="+",
-    help="How much data to train on (default: 'default')",
+    help="Amount of GeoBench data to train on (default: 'default')."
 )
 
 input_size = 112
 METHODS = {
     "barlowtwins": {
-        "model": BarlowTwins,
-        "transform": BarlowTwinsTransform(
-            BarlowTwinsView1Transform(input_size=input_size),
-            BarlowTwinsView2Transform(input_size=input_size),
+        "model": modules.BarlowTwins,
+        "transform": transforms.BarlowTwinsTransform(
+            transforms.BarlowTwinsView1Transform(input_size=input_size),
+            transforms.BarlowTwinsView2Transform(input_size=input_size),
         ),
     },
-    "simclr": {"model": SimCLR, "transform": SimCLRTransform(input_size=input_size)},
+    "simclr": {
+        "model": modules.SimCLR,
+        "transform": transforms.SimCLRTransform(input_size=input_size),
+    },
     "byol": {
-        "model": BYOL,
-        "transform": BYOLTransform(
-            BYOLView1Transform(input_size=input_size),
-            BYOLView2Transform(input_size=input_size),
+        "model": modules.BYOL,
+        "transform": transforms.BYOLTransform(
+            transforms.BYOLView1Transform(input_size=input_size),
+            transforms.BYOLView2Transform(input_size=input_size),
         ),
     },
-    "vicreg": {"model": VICReg, "transform": VICRegTransform(input_size=input_size)},
+    "vicreg": {
+        "model": modules.VICReg,
+        "transform": transforms.VICRegTransform(input_size=input_size),
+    },
     "mae": {
-        "model": partial(MAE, img_size=input_size),
-        "transform": MAETransform(input_size=input_size),
+        "model": partial(modules.MAE, img_size=input_size),
+        "transform": transforms.MAETransform(input_size=input_size),
     },
 }
 
@@ -157,7 +221,7 @@ def main(
     # number depend on which channel combination is chosen
     in_channels = sum([len(input_modality[k]) for k in input_modality])
 
-    # checking if target is given (if not, no onlineclassifier will be trained)
+    # checking if target is given (if not, no online classifier will be trained)
     if target is None or target.lower() == "none":
         target = None
         target_modality = None
@@ -174,6 +238,7 @@ def main(
 
     torch.set_float32_matmul_precision("high")
 
+    # if no methods are give, all will be used
     method_names = methods or METHODS.keys()
 
     for method in method_names:
@@ -182,6 +247,7 @@ def main(
         ).resolve()
         method_dir.mkdir(exist_ok=True, parents=True)
 
+        # init model
         model = METHODS[method]["model"](
             input_key=input_key,
             target_key=target,
@@ -245,8 +311,10 @@ def main(
                     )
 
         if target is None:
-            print_rank_zero("Skipping offline eval because no target is selected.")
+            print_rank_zero(f"Skipping offline eval because no target is selected.")
             return
+        else:
+            print_rank_zero(f"Starting offline eval of '{target}' target.")
 
         if skip_knn_eval:
             print_rank_zero("Skipping KNN eval.")
