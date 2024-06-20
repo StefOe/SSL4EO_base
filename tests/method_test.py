@@ -27,8 +27,8 @@ def args():
     args.input_channel = "all"
     args.target = "biome"
     args.last_backbone_channel = None
-    args.geobench_dataset = None
-    args.geobench_partition = "default"
+    args.geobench_datasets = None
+    args.geobench_partitions = ["default"]
     args.skip_knn_eval = False
     args.skip_linear_eval = False
     args.skip_finetune_eval = False
@@ -37,12 +37,12 @@ def args():
     return args
 
 @pytest.mark.parametrize("methods", [k for k in METHODS])
-@pytest.mark.parametrize("geobench_dataset", ["m-eurosat", "m-so2sat", "m-bigearthnet"])
-def test_geobench_with_methods(args, methods: str, geobench_dataset: str):
+@pytest.mark.parametrize("geobench_datasets", [["m-eurosat"], ["m-so2sat"], ["m-bigearthnet"]])
+def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str]):
     args.log_dir.mkdir(exist_ok=True)
     args.methods = [methods]
     args.target = None
-    args.geobench_dataset = geobench_dataset
+    args.geobench_datasets = geobench_datasets
 
     try:
         main(**vars(args), debug=True)

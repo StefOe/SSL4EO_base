@@ -62,8 +62,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num-workers",
-    type=int,
-    default=8,
+    type=int,    default=8,
     help="Number of threads to use for data loading (default: 8).",
 )
 parser.add_argument(
