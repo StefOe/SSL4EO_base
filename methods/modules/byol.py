@@ -17,23 +17,21 @@ class BYOL(EOModule):
 
     def __init__(
         self,
-        input_key: str,
-        target_key: [str, None],
         backbone: str,
         batch_size_per_device: int,
         in_channels: int,
         num_classes: int,
+        has_online_classifier: bool,
         last_backbone_channel: int = None,
     ) -> None:
         self.save_hyperparameters()
         self.hparams["method"] = self.__class__.__name__
         super().__init__(
-            input_key,
-            target_key,
             backbone,
             batch_size_per_device,
             in_channels,
             num_classes,
+            has_online_classifier,
             last_backbone_channel,
         )
 
@@ -70,7 +68,7 @@ class BYOL(EOModule):
         update_momentum(self.projection_head, self.teacher_projection_head, m=momentum)
 
         # Forward pass and loss calculation.
-        views = batch[self.input_key]
+        views = batch[0]
         teacher_projections_0 = self.forward_teacher(views[0])
         teacher_projections_1 = self.forward_teacher(views[1])
         student_features_0, student_predictions_0 = self.forward_student(views[0])
@@ -86,8 +84,8 @@ class BYOL(EOModule):
         )
 
         # Online linear evaluation.
-        if self.target_key is not None:
-            targets = batch[self.target_key]
+        if self.has_online_classifier:
+            targets = batch[1]
             cls_loss, cls_log = self.online_classifier.training_step(
                 (student_features_0.detach(), targets), batch_idx
             )
@@ -113,7 +111,7 @@ class BYOL(EOModule):
                 "weight_decay": 0.0,
             },
         ]
-        if self.target_key is not None:
+        if self.has_online_classifier:
             param_list.append(
                 {
                     "name": "online_classifier",

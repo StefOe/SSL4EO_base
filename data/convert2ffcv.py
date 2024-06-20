@@ -1,4 +1,3 @@
-import torch
 from ffcv.writer import DatasetWriter
 from ffcv.fields import NDArrayField, IntField
 import numpy as np

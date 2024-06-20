@@ -34,6 +34,7 @@ class MAETransform:
             min_scale: float = 0.2,
     ):
         transforms = [
+            T.ToTensor(),
             T.RandomResizedCrop(
                 input_size, scale=(min_scale, 1.0), interpolation=3
             ),  # 3 is bicubic

@@ -26,10 +26,12 @@ class BackboneExpander(nn.Module):
 class EOModule(LightningModule):
     def __init__(
         self,
-        input_key: str,
-        target_key: [str, None],backbone: str,
-        batch_size_per_device: int,in_channels: int,
-        num_classes: int,last_backbone_channel: int = None
+        backbone: str,
+        batch_size_per_device: int,
+        in_channels: int,
+        num_classes: int,
+        has_online_classifier: bool,
+        last_backbone_channel: int = None
     ):
         super().__init__()
         self.batch_size_per_device = batch_size_per_device
@@ -65,9 +67,8 @@ class EOModule(LightningModule):
         self.last_backbone_channel = last_backbone_channel
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
-        self.input_key = input_key
-        self.target_key = target_key
-        if target_key is not None:
+        self.has_online_classifier =has_online_classifier
+        if has_online_classifier is not None:
             self.online_classifier = OnlineLinearClassifier(
                 self.last_backbone_channel, num_classes=num_classes
             )
@@ -84,10 +85,10 @@ class EOModule(LightningModule):
         raise NotImplementedError
 
     def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:
-        images = batch[self.input_key]
+        images = batch[0]
         features = self.forward(images).flatten(start_dim=1)
-        if self.target_key is not None:
-            targets = batch[self.target_key]
+        if self.has_online_classifier:
+            targets = batch[1]
             cls_loss, cls_log = self.online_classifier.validation_step(
                 (features.detach(), targets), batch_idx
             )

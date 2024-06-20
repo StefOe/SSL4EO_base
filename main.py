@@ -219,7 +219,6 @@ def main(
 
     # store the requested channel combination
     input_modality = IN_MODALITIES[input_channel]
-    input_key = list(input_modality.keys())[0]  # should be sentinel2 with defaults
 
     # number depend on which channel combination is chosen
     in_channels = sum([len(input_modality[k]) for k in input_modality])
@@ -252,8 +251,6 @@ def main(
 
         # init model
         model = METHODS[method]["model"](
-            input_key=input_key,
-            target_key=target,
             backbone=backbone,
             batch_size_per_device=batch_size_per_device,
             num_classes=num_classes,
@@ -395,7 +392,7 @@ def pretrain(
     args = create_MMEearth_args(data_dir, input_modality, target_modality)
 
     train_transform = METHODS[method]["transform"]
-    train_dataset = MultimodalDataset(args, split="train", transform=train_transform)
+    train_dataset = MultimodalDataset(args, split="train", transform=train_transform, return_tuple=True)
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size_per_device,
@@ -403,10 +400,11 @@ def pretrain(
         num_workers=num_workers,
         drop_last=True,
         persistent_workers=num_workers > 0,
+        pin_memory=not accelerator == "cpu",
     )
 
     # Setup validation data.
-    val_dataset = MultimodalDataset(args, split="val", transform=None)
+    val_dataset = MultimodalDataset(args, split="val", transform=None, return_tuple=True)
     val_dataloader = None
     if len(val_dataset) > 0:
         val_dataloader = DataLoader(
@@ -416,6 +414,7 @@ def pretrain(
             num_workers=num_workers,
             drop_last=False,
             persistent_workers=num_workers > 0,
+            pin_memory=not accelerator == "cpu",
         )
     else:
         print_rank_zero("No validation data found, skipping it...")

@@ -56,6 +56,7 @@ def linear_eval(
 
     train_transform = T.Compose(
         [
+            T.ToTensor(),
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),
         ]
@@ -74,7 +75,7 @@ def linear_eval(
 
     # Setup validation data.
     val_dataset = MultimodalDataset(
-        args, split="val", transform=None, return_tuple=True
+        args, split="val", transform=T.ToTensor(), return_tuple=True
     )
     val_dataloader = None
     if len(val_dataset) > 0:

@@ -6,7 +6,6 @@ from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
-
 class BarlowTwinsView1Transform:
     def __init__(
             self,
@@ -36,6 +35,7 @@ class BarlowTwinsView1Transform:
         )
 
         transform = [
+            T.ToTensor(),
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
@@ -92,6 +92,7 @@ class BarlowTwinsView2Transform:
         )
 
         transform = [
+            T.ToTensor(),
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),

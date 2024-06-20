@@ -20,13 +20,12 @@ class MAE(LightningModule):
 
     def __init__(
         self,
-        input_key: str,
-        target_key: [str, None],
         backbone: str,
         batch_size_per_device: int,
         in_channels: int,
         img_size: int,
         num_classes: int,
+        has_online_classifier: bool,
         last_backbone_channel: int = None,
     ):
         assert (
@@ -85,9 +84,8 @@ class MAE(LightningModule):
         )
         self.criterion = MSELoss()
 
-        self.input_key = input_key
-        self.target_key = target_key
-        if target_key is not None:
+        self.has_online_classifier = has_online_classifier
+        if has_online_classifier:
             self.online_classifier = OnlineLinearClassifier(
                 feature_dim=vit.embed_dim, num_classes=num_classes
             )
@@ -119,7 +117,7 @@ class MAE(LightningModule):
         return x_pred
 
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
-        images = batch[self.input_key]
+        images = batch[0]
         images = images[0]  # images is a list containing only one view
 
         batch_size = images.shape[0]
@@ -142,8 +140,8 @@ class MAE(LightningModule):
         )
 
         # Online linear evaluation.
-        if self.target_key is not None:
-            targets = batch[self.target_key]
+        if self.has_online_classifier:
+            targets = batch[1]
             cls_features = features[:, 0]
             cls_loss, cls_log = self.online_classifier.training_step(
                 (cls_features.detach(), targets), batch_idx
@@ -153,13 +151,13 @@ class MAE(LightningModule):
         return loss
 
     def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:
-        images = batch[self.input_key]
-        if self.target_key is not None:
+        images = batch[0]
+        if self.has_online_classifier:
             # ensuring that the img size requirements are met
             if images.shape[2] != self.img_size or images.shape[3] != self.img_size:
                 images = torch.nn.functional.interpolate(images, self.img_size)
 
-            targets = batch[self.target_key]
+            targets = batch[1]
             cls_features = self.forward(images).flatten(start_dim=1)
             cls_loss, cls_log = self.online_classifier.validation_step(
                 (cls_features.detach(), targets), batch_idx
@@ -185,7 +183,7 @@ class MAE(LightningModule):
                 "weight_decay": 0.0,
             },
         ]
-        if self.target_key is not None:
+        if self.has_online_classifier:
             param_list.append(
                 {
                     "name": "online_classifier",

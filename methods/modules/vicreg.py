@@ -16,18 +16,22 @@ class VICReg(EOModule):
 
     def __init__(
         self,
-        input_key: str,
-        target_key: [str, None],
         backbone: str,
         batch_size_per_device: int,
         in_channels: int,
         num_classes: int,
+        has_online_classifier: bool,
         last_backbone_channel: int = None,
     ):
         self.save_hyperparameters()
         self.hparams["method"] = self.__class__.__name__
         super().__init__(
-            input_key, target_key, backbone, batch_size_per_device, in_channels, num_classes, last_backbone_channel
+            backbone,
+            batch_size_per_device,
+            in_channels,
+            num_classes,
+            has_online_classifier,
+            last_backbone_channel
         )
 
         self.projection_head = VICRegProjectionHead(
@@ -36,7 +40,7 @@ class VICReg(EOModule):
         self.criterion = VICRegLoss()
 
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
-        views = batch[self.input_key]
+        views = batch[0]
         features = self.forward(torch.cat(views)).flatten(start_dim=1)
         z = self.projection_head(features)
         z_a, z_b = z.chunk(len(views))
@@ -46,8 +50,8 @@ class VICReg(EOModule):
         )
 
         # Online linear evaluation.
-        if self.target_key is not None:
-            targets = batch[self.target_key]
+        if self.has_online_classifier:
+            targets = batch[1]
             cls_loss, cls_log = self.online_classifier.training_step(
                 (features.detach(), targets.repeat(len(views))), batch_idx
             )
@@ -72,7 +76,7 @@ class VICReg(EOModule):
                 "weight_decay": 0.0,
             },
         ]
-        if self.target_key is not None:
+        if self.has_online_classifier:
             param_list.append({
                     "name": "online_classifier",
                     "params": self.online_classifier.parameters(),

@@ -7,6 +7,7 @@ from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
+from torchvision import transforms as T
 
 from data.mmearth_dataset import (
     create_MMEearth_args,
@@ -46,7 +47,7 @@ def knn_eval(
     # Setup training data.
     args = create_MMEearth_args(data_dir, input_modality, target_modality)
 
-    train_dataset = MultimodalDataset(args, split="train", transform=None, return_tuple=True)
+    train_dataset = MultimodalDataset(args, split="train", transform=T.ToTensor(), return_tuple=True)
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=batch_size_per_device,
@@ -57,7 +58,7 @@ def knn_eval(
     )
 
     # Setup validation data.
-    val_dataset = MultimodalDataset(args, split="val", transform=None, return_tuple=True)
+    val_dataset = MultimodalDataset(args, split="val", transform=T.ToTensor(), return_tuple=True)
     val_dataloader = None
     if len(val_dataset) > 0:
         val_dataloader = DataLoader(

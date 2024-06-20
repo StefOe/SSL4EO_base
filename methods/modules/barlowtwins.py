@@ -16,23 +16,21 @@ class BarlowTwins(EOModule):
 
     def __init__(
         self,
-        input_key: str,
-        target_key: [str, None],
         backbone: str,
         batch_size_per_device: int,
         in_channels: int,
         num_classes: int,
+        has_online_classifier: bool,
         last_backbone_channel: int = None,
     ) -> None:
         self.save_hyperparameters()
         self.hparams["method"] = self.__class__.__name__
         super().__init__(
-            input_key,
-            target_key,
             backbone,
             batch_size_per_device,
             in_channels,
             num_classes,
+            has_online_classifier,
             last_backbone_channel,
         )
 
@@ -41,7 +39,7 @@ class BarlowTwins(EOModule):
 
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
         # Forward pass and loss calculation.
-        views = batch[self.input_key]
+        views = batch[0]
         features = self.forward(torch.cat(views)).flatten(start_dim=1)
         z = self.projection_head(features)
         z0, z1 = z.chunk(len(views))
@@ -52,8 +50,8 @@ class BarlowTwins(EOModule):
         )
 
         # Online linear evaluation.
-        if self.target_key is not None:
-            targets = batch[self.target_key]
+        if self.has_online_classifier:
+            targets = batch[1]
             cls_loss, cls_log = self.online_classifier.training_step(
                 (features.detach(), targets.repeat(len(views))), batch_idx
             )
@@ -78,7 +76,7 @@ class BarlowTwins(EOModule):
                 "lr": 0.0048 * lr_factor,
             },
         ]
-        if self.target_key is not None:
+        if self.has_online_classifier:
             param_list.append(
                 {
                     "name": "online_classifier",

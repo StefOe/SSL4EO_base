@@ -22,6 +22,10 @@ dependencies:
   - lightning
   - umap-learn
   - h5py
+  - cupy
+  - pkg-config
+  - libjpeg-turbo
+  - opencv
   - pip
   - pip:
       - pytest
