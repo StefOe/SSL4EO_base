@@ -7,8 +7,9 @@ from typing import Sequence, Union
 
 import ffcv
 import torch
+from ffcv.fields.basics import IntDecoder
+from ffcv.fields.ndarray import NDArrayDecoder
 from ffcv.loader import OrderOption
-from ffcv.pipeline import PipelineSpec
 from ffcv.transforms import ToTensor
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
@@ -35,7 +36,6 @@ from eval.knn import knn_eval
 from eval.linear import linear_eval
 from methods import modules
 from methods import transforms
-from methods.transforms import to_tensor
 
 # Argparser for all your configuration needs
 parser = ArgumentParser("MMEarth Benchmark")
@@ -399,11 +399,11 @@ def pretrain(
     print_rank_zero(f"Running pretraining for {method}...")
 
     # Setup training data.
-    train_transform = [METHODS[method]["transform"]]
+    train_transform = METHODS[method]["transform"]
     if data_dir.suffix == ".beton":
         # Data decoding and augmentation
-        image_pipeline = PipelineSpec("sentinel2", transforms=train_transform)
-        label_pipeline = [ ToTensor() ]
+        image_pipeline = [ NDArrayDecoder(), train_transform]
+        label_pipeline = [ IntDecoder(), ToTensor() ]
 
         # Pipeline for each data field
         train_pipelines = {"sentinel2": image_pipeline, "biome": label_pipeline}
