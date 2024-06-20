@@ -1,5 +1,6 @@
 import json
 from argparse import Namespace
+from collections import OrderedDict
 from copy import copy
 from pathlib import Path
 
@@ -69,7 +70,7 @@ class MultimodalDataset(Dataset):
             self._open_hdf5(self.data_path)
 
         # based on what bands and what modalities we need for training, we return the return_dict[idx].)
-        return_dict = {}
+        return_dict = OrderedDict()
         name = self.data_full["metadata"][self.indices[idx]][0].decode("utf-8")
         l2a = self.tile_info[name]["S2_type"] == "l2a"
 
@@ -163,7 +164,7 @@ class MultimodalDataset(Dataset):
                 "dynamic_world",
                 "esa_worldcover",
             ]:
-                data = data.astype(int)
+                data = data.astype(np.dtype("int64"))
             else:
                 data = data.astype(np.dtype("float32"))
 
@@ -171,7 +172,7 @@ class MultimodalDataset(Dataset):
 
         # we also return the id, to differentiate between sentinel2_l1c and sentinel2_l2a, since this is given in the tile_info json file. To keep everything
         # consistent, we name the modality as sentinel2 instead of sentinel2_l1c or sentinel2_l2a
-        return_dict["id"] = np.array(name)
+        return_dict["id"] = name
 
         # apply transforms on normalized data
         if self.transform is not None:

@@ -14,6 +14,7 @@ from data.mmearth_dataset import (
     create_MMEearth_args,
     MultimodalDataset,
 )
+from methods.transforms import to_tensor
 
 
 def linear_eval(
@@ -56,7 +57,7 @@ def linear_eval(
 
     train_transform = T.Compose(
         [
-            T.ToTensor(),
+            to_tensor,
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),
         ]
@@ -75,7 +76,7 @@ def linear_eval(
 
     # Setup validation data.
     val_dataset = MultimodalDataset(
-        args, split="val", transform=T.ToTensor(), return_tuple=True
+        args, split="val", transform=to_tensor, return_tuple=True
     )
     val_dataloader = None
     if len(val_dataset) > 0:
@@ -125,6 +126,9 @@ def linear_eval(
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
+
+    wandb.finish()
+    if debug: return
     if val_dataloader is None:
         for metric in ["train_top1", "train_top5"]:
             print_rank_zero(
@@ -135,4 +139,3 @@ def linear_eval(
             print_rank_zero(
                 f"max linear {metric}: {max(metric_callback.val_metrics[metric])}"
             )
-    wandb.finish()

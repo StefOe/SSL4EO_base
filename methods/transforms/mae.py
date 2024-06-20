@@ -4,6 +4,8 @@ import torchvision.transforms as T
 from PIL.Image import Image
 from torch import Tensor
 
+from methods.transforms.base import to_tensor
+
 
 class MAETransform:
     """Implements the view augmentation for MAE [0].
@@ -34,7 +36,7 @@ class MAETransform:
             min_scale: float = 0.2,
     ):
         transforms = [
-            T.ToTensor(),
+            to_tensor,
             T.RandomResizedCrop(
                 input_size, scale=(min_scale, 1.0), interpolation=3
             ),  # 3 is bicubic

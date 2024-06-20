@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from torch import Tensor
 
 from data import constants
 from data.constants import MMEARTH_DIR

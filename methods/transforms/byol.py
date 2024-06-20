@@ -6,6 +6,8 @@ from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
+from methods.transforms.base import to_tensor
+
 
 # BYOL uses a slight modification of the SimCLR transforms.
 # It uses asymmetric augmentation and solarize.
@@ -40,7 +42,7 @@ class BYOLView1Transform:
         )
 
         transform = [
-            T.ToTensor(),
+            to_tensor,
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
@@ -97,7 +99,7 @@ class BYOLView2Transform:
         )
 
         transform = [
-            T.ToTensor(),
+            to_tensor,
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),

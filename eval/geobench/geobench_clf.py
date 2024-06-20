@@ -133,6 +133,8 @@ def geobench_clf(
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
+    wandb.finish()
+    if debug: return
     if val_dataloader is None:
         for metric in ["train_top1", "train_top5"]:
             print_rank_zero(
@@ -143,7 +145,6 @@ def geobench_clf(
             print_rank_zero(
                 f"max {dataset_name} {method} {metric}: {max(metric_callback.val_metrics[metric])}"
             )
-    wandb.finish()
 
 
 def get_geobench_classifier(

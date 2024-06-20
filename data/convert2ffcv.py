@@ -1,7 +1,6 @@
 from ffcv.writer import DatasetWriter
 from ffcv.fields import NDArrayField, IntField
 import numpy as np
-
 def convert_mmearth(dataset):
     # Your dataset (`torch.utils.data.Dataset`) of (image, label) pairs
     write_path = 'data/mmearth.beton'

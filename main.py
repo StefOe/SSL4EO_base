@@ -283,6 +283,7 @@ def main(
                 devices=devices,
                 precision=precision,
                 ckpt_path=ckpt_path,
+                debug=debug,
             )
 
         if not geobench_datasets:
@@ -455,7 +456,7 @@ def pretrain(
         val_dataloaders=val_dataloader,
         ckpt_path=ckpt_path,
     )
-    if target_modality is not None:
+    if target_modality is not None and not debug:
         if val_dataloader is None:
             for metric in ["train_top1", "train_top5"]:
                 print_rank_zero(
