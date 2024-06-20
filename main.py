@@ -255,6 +255,7 @@ def main(
             batch_size_per_device=batch_size_per_device,
             num_classes=num_classes,
             in_channels=in_channels,
+            has_online_classifier=target is not None,
             last_backbone_channel=last_backbone_channel,
         )
 
