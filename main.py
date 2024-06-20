@@ -226,8 +226,9 @@ def main(
     if target is None or target.lower() == "none":
         target = None
         target_modality = None
-        assert skip_knn_eval and skip_linear_eval and skip_finetune_eval, (
-            "if no target is set, all offline evaluation needs to be skipped "
+        if skip_knn_eval or skip_linear_eval or skip_finetune_eval:
+            print_rank_zero(
+            "if no target is set, all offline evaluation will be skipped "
             "(e.g., add --skip-linear-eval --skip-finetune-eval --skip-knn-eval)"
         )
 
