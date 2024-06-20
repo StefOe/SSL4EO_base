@@ -10,7 +10,7 @@ import torch
 from ffcv.fields.basics import IntDecoder
 from ffcv.fields.ndarray import NDArrayDecoder
 from ffcv.loader import OrderOption
-from ffcv.transforms import ToTensor, ToTorchImage
+from ffcv.transforms import ToTensor, ToTorchImage, Squeeze
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
@@ -402,8 +402,8 @@ def pretrain(
     train_transform = METHODS[method]["transform"]
     if data_dir.suffix == ".beton":
         # Data decoding and augmentation
-        image_pipeline = [NDArrayDecoder(), ToTensor(), ToTorchImage(channels_last=False), train_transform]
-        label_pipeline = [IntDecoder(), ToTensor()]
+        image_pipeline = [NDArrayDecoder(), ToTensor(), train_transform]
+        label_pipeline = [IntDecoder(), ToTensor(), Squeeze([1])]
 
         # Pipeline for each data field
         train_pipelines = {"sentinel2": image_pipeline, "biome": label_pipeline}
@@ -418,7 +418,7 @@ def pretrain(
             drop_last=True,
         )
 
-        val_pipelines = {"sentinel2": [ToTensor()], "biome": [ToTensor()]}
+        val_pipelines = {"sentinel2": [NDArrayDecoder(), ToTensor()], "biome": [IntDecoder(), ToTensor(), Squeeze([1])]}
         val_dataloader = ffcv.Loader(
             data_dir,  # TODO this must be a different file, JUST TESTING here
             batch_size=batch_size_per_device,

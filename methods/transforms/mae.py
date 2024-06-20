@@ -39,7 +39,6 @@ class MAETransform(Operation):
     ):
         super().__init__()
         transforms = [
-            to_tensor,
             T.RandomResizedCrop(
                 input_size, scale=(min_scale, 1.0), interpolation=3
             ),  # 3 is bicubic
@@ -50,7 +49,7 @@ class MAETransform(Operation):
         self.transform = T.Compose(transforms)
 
     def generate_code(self) -> Callable:
-        def transform(self, image: Union[Tensor, Image]) -> List[Tensor]:
+        def transform(image: Union[Tensor, Image], _) -> List[Tensor]:
             """
             Applies the transforms to the input image.
 
@@ -72,10 +71,7 @@ class MAETransform(Operation):
         return (
             replace(
                 previous_state,
-                shape=[
-                    (x[0], self.input_size, self.input_size)
-                    for x in previous_state.shape
-                ],
+                shape=(previous_state.shape[0], self.input_size, self.input_size)
             ),
             None,
         )
