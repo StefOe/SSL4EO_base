@@ -38,8 +38,9 @@ parser = ArgumentParser("MMEarth Benchmark")
 parser.add_argument(
     "--data-dir",
     type=Path,
-    default="./datasets/data_1k",
-    help="Path to the MMEarth dataset folder (default: './datasets/data_1k').",
+    default=None,
+    help="Path to the MMEarth dataset folder (default: None). "
+         "If not given the environment variable MMEARTH_DIR will be used",
 )
 parser.add_argument(
     "--log-dir",
