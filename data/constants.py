@@ -26,6 +26,15 @@
 # provide the bands and modalities based on the names above.
 # if you just want all bands, just mention 'all' with the corresponding modality.
 
+import os
+from pathlib import Path
+
+_MMEARTH_DIR_ENV = os.environ.get("MMEARTH_DIR", None)
+
+MMEARTH_DIR = Path("./datasets/data_1k")
+if _MMEARTH_DIR_ENV is not None:
+    MMEARTH_DIR = Path(_MMEARTH_DIR_ENV)
+
 
 NO_DATA_VAL = {
     "sentinel2": 0,

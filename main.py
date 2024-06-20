@@ -22,6 +22,7 @@ from data.constants import (
     RGB_MODALITIES,
     MODALITIES_FULL,
     CLASSIFICATION_CLASSES,
+    MMEARTH_DIR,
 )
 from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
 from eval.finetune import finetune_eval
@@ -38,119 +39,116 @@ parser.add_argument(
     "--data-dir",
     type=Path,
     default="./datasets/data_1k",
-    help="Path to the MMEarth dataset folder (default: './datasets/data_1k')."
+    help="Path to the MMEarth dataset folder (default: './datasets/data_1k').",
 )
 parser.add_argument(
     "--log-dir",
     type=Path,
     default="experiment_logs",
-    help="Path to the directory where logs will be stored (default: 'experiment_logs')."
+    help="Path to the directory where logs will be stored (default: 'experiment_logs').",
 )
 parser.add_argument(
     "--batch-size-per-device",
     type=int,
     default=128,
-    help="Batch size per device (default: 128)."
+    help="Batch size per device (default: 128).",
 )
 parser.add_argument(
     "--epochs",
     type=int,
     default=100,
-    help="Number of epochs for pretraining. Set to 0 to skip pretraining and go straight to evaluation (default: 100)."
+    help="Number of epochs for pretraining. Set to 0 to skip pretraining and go straight to evaluation (default: 100).",
 )
 parser.add_argument(
     "--num-workers",
     type=int,
     default=8,
-    help="Number of threads to use for data loading (default: 8)."
+    help="Number of threads to use for data loading (default: 8).",
 )
 parser.add_argument(
     "--accelerator",
     type=str,
     default="gpu",
-    help="Type of accelerator to use: 'cpu', 'gpu', 'tpu', 'ipu', 'hpu', 'mps', or 'auto' (default: 'gpu')."
+    help="Type of accelerator to use: 'cpu', 'gpu', 'tpu', 'ipu', 'hpu', 'mps', or 'auto' (default: 'gpu').",
 )
 parser.add_argument(
-    "--devices",
-    type=int,
-    default=1,
-    help="Number of devices to use (default: 1)."
+    "--devices", type=int, default=1, help="Number of devices to use (default: 1)."
 )
 parser.add_argument(
     "--precision",
     type=str,
     default="16-mixed",
-    help="Model precision: '16-mixed', '32', etc. (default: '16-mixed')."
+    help="Model precision: '16-mixed', '32', etc. (default: '16-mixed').",
 )
 parser.add_argument(
     "--ckpt-path",
     type=Path,
     default=None,
-    help="Path to a checkpoint file to resume training or evaluate (default: None)."
+    help="Path to a checkpoint file to resume training or evaluate (default: None).",
 )
 parser.add_argument(
     "--compile-model",
     action="store_true",
-    help="If set, the model will be compiled for optimization."
+    help="If set, the model will be compiled for optimization.",
 )
 parser.add_argument(
     "--methods",
     type=str,
     nargs="+",
-    help="SSL methods to apply: 'byol', 'simclr', 'mae', 'barlowtwins', 'vicreg'."
+    help="SSL methods to apply: 'byol', 'simclr', 'mae', 'barlowtwins', 'vicreg'.",
 )
 parser.add_argument(
     "--backbone",
     type=str,
     default="default",
-    help="Encoder architecture to use (default: 'default')."
+    help="Encoder architecture to use (default: 'default').",
 )
 parser.add_argument(
     "--input-channel",
     "-i",
     type=str,
     default="all",
-    help="Sentinel-2 input channel selection: 'all', 'rgb' (default: 'all')."
+    help="Sentinel-2 input channel selection: 'all', 'rgb' (default: 'all').",
 )
 parser.add_argument(
     "--target",
     "-t",
     type=str,
     default="biome",
-    help="Target modality for the online classifier: 'biome', 'eco_region' (default: 'biome')."
+    help="Target modality for the online classifier: 'biome', 'eco_region' (default: 'biome').",
 )
 parser.add_argument(
     "--last-backbone-channel",
     type=int,
     default=None,
-    help="If provided, adds another backbone layer to change output size (default: None)."
+    help="If provided, adds another backbone layer to change output size (default: None).",
 )
 parser.add_argument(
     "--skip-knn-eval",
     action="store_true",
-    help="If set, KNN evaluation will be skipped."
+    help="If set, KNN evaluation will be skipped.",
 )
 parser.add_argument(
     "--skip-linear-eval",
     action="store_true",
-    help="If set, linear evaluation will be skipped."
+    help="If set, linear evaluation will be skipped.",
 )
 parser.add_argument(
     "--skip-finetune-eval",
     action="store_true",
-    help="If set, fine-tuning evaluation will be skipped."
+    help="If set, fine-tuning evaluation will be skipped.",
 )
 parser.add_argument(
     "--geobench-datasets",
     type=str,
     nargs="+",
-    help="GeoBench datasets for classification: 'm-eurosat', 'm-so2sat', 'm-bigearthnet'; for segmentation: 'm-cashew-plant', 'm-SA-crop-type'."
+    help="GeoBench datasets for classification: 'm-eurosat', 'm-so2sat', 'm-bigearthnet'; for segmentation: 'm-cashew-plant', 'm-SA-crop-type'.",
 )
 parser.add_argument(
     "--geobench-partitions",
     type=str,
     nargs="+",
-    help="Amount of GeoBench data to train on (default: 'default')."
+    help="Amount of GeoBench data to train on (default: 'default').",
 )
 
 input_size = 112
@@ -212,7 +210,11 @@ def main(
     ckpt_path: Union[Path, None],
     debug: bool = False,
 ) -> None:
-    assert data_dir.exists(), f"data folder does not exist: {data_dir}"
+    if data_dir is None:
+        data_dir = MMEARTH_DIR
+
+    assert data_dir.exists(), (f"data folder does not exist: {data_dir}, "
+                               f"either --data-dir <folder> or set environment variable: export MMEARTH_DIR=<folder>")
 
     # store the requested channel combination
     input_modality = IN_MODALITIES[input_channel]

@@ -6,6 +6,7 @@ import pytest
 from torch import Tensor
 
 from data import constants
+from data.constants import MMEARTH_DIR
 from data.geobench_dataset import GeobenchDataset
 from data.mmearth_dataset import MultimodalDataset
 
@@ -13,7 +14,7 @@ from data.mmearth_dataset import MultimodalDataset
 @pytest.fixture
 def args():
     args = Namespace()
-    data_root = Path("./datasets/data_1k")
+    data_root = Path(MMEARTH_DIR)
     assert data_root.exists(), f"need data (in {data_root}) to test this"
     args.data_path = data_root / "data_1k.h5"
     args.splits_path = data_root / "data_1k_splits.json"
