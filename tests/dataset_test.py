@@ -1,33 +1,10 @@
-import json
-from argparse import Namespace
-from pathlib import Path
-
 import pytest
 from torch import Tensor
 
 from data import constants
 from data.constants import MMEARTH_DIR
 from data.geobench_dataset import GeobenchDataset
-from data.mmearth_dataset import MultimodalDataset
-
-
-@pytest.fixture
-def args():
-    args = Namespace()
-    data_root = Path(MMEARTH_DIR)
-    assert data_root.exists(), f"need data (in {data_root}) to test this"
-    args.data_path = data_root / "data_1k.h5"
-    args.splits_path = data_root / "data_1k_splits.json"
-    args.tile_info_path = data_root / "data_1k_tile_info.json"
-    with open(args.tile_info_path, "r") as f:
-        args.tile_info = json.load(f)
-    args.band_stats_path = data_root / "data_1k_band_stats.json"
-    with open(args.band_stats_path, "r") as f:
-        args.band_stats = json.load(f)
-    args.data_name = data_root.name
-
-    args.modalities_full = constants.MODALITIES_FULL
-    return args
+from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
@@ -35,7 +12,9 @@ def args():
     "modalities",
     [constants.OUT_MODALITIES, constants.INP_MODALITIES, constants.RGB_MODALITIES],
 )
-def test_mmearth_dataset(args, split, modalities):
+def test_mmearth_dataset(split, modalities):
+    args = create_MMEearth_args(MMEARTH_DIR, modalities, constants.MODALITIES_FULL)
+
     args.modalities = modalities
     dataset = MultimodalDataset(args, split=split, transform=None)
 
@@ -77,7 +56,7 @@ def test_mmearth_dataset(args, split, modalities):
         "m-SA-crop-type",
     ],
 )
-def test_geobench_dataset(args, split, dataset_name):
+def test_geobench_dataset(split, dataset_name):
     if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet", "m-brick-kiln"]:
         dataset = GeobenchDataset(
             dataset_name=dataset_name,

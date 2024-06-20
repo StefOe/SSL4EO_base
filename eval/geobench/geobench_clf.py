@@ -98,7 +98,7 @@ def geobench_clf(
     metric_callback = MetricCallback()
     epochs = 90 if method == "linear" else 30
     trainer = Trainer(
-        max_epochs=90,
+        max_epochs=epochs,
         accelerator=accelerator,
         devices=devices,
         callbacks=[

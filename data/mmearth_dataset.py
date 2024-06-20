@@ -183,14 +183,20 @@ class MultimodalDataset(Dataset):
         return return_dict
 
 
-def create_MMEearth_args(data_root, input_modality, target_modality):
+def get_single_glob_file(data_root: Path, pattern) -> Path:
+    file = [f for f in data_root.glob(pattern)]
+    assert len(file) == 1, f"too many {pattern} files at {data_root}"
+    return file[0]
+
+def create_MMEearth_args(data_root: Path, input_modality:dict, target_modality:dict) -> Namespace:
     args = Namespace()
-    args.data_path = data_root / "data_1k.h5"
-    args.splits_path = data_root / "data_1k_splits.json"
-    args.tile_info_path = data_root / "data_1k_tile_info.json"
+
+    args.data_path = get_single_glob_file(data_root, "data_*.h5")
+    args.splits_path = get_single_glob_file(data_root, "data_*_splits.json")
+    args.tile_info_path = get_single_glob_file(data_root, "data_*_tile_info.json")
     with open(args.tile_info_path, "r") as f:
         args.tile_info = json.load(f)
-    args.band_stats_path = data_root / "data_1k_band_stats.json"
+    args.band_stats_path = get_single_glob_file(data_root, "data_*_band_stats.json")
     with open(args.band_stats_path, "r") as f:
         args.band_stats = json.load(f)
     args.data_name = data_root.name
