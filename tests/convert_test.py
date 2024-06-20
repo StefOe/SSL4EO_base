@@ -18,7 +18,6 @@ def test_mmearth_dataset(split, modalities):
         MMEARTH_DIR, modalities, {"biome": constants.MODALITIES_FULL["biome"]}
     )
 
-    args.modalities = modalities
     dataset = MultimodalDataset(args, split=split, transform=None)
 
     convert_mmearth(dataset)

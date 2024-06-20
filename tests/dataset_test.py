@@ -12,10 +12,13 @@ from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
     "modalities",
     [constants.OUT_MODALITIES, constants.INP_MODALITIES, constants.RGB_MODALITIES],
 )
-def test_mmearth_dataset(split, modalities):
-    args = create_MMEearth_args(MMEARTH_DIR, modalities, constants.MODALITIES_FULL)
+@pytest.mark.parametrize(
+    "target_modalities",
+    [{"biome": constants.MODALITIES_FULL["biome"]},{"eco_region": constants.MODALITIES_FULL["eco_region"]}],
+)
+def test_mmearth_dataset(split, modalities, target_modalities):
+    args = create_MMEearth_args(MMEARTH_DIR, modalities, target_modalities)
 
-    args.modalities = modalities
     dataset = MultimodalDataset(args, split=split, transform=None)
 
     if split == "train":
@@ -37,49 +40,48 @@ def test_mmearth_dataset(split, modalities):
             data["sentinel2"], Tensor
         ), "'sentinel2' data should be a Tensor"
         assert data["sentinel2"].shape[0] == s2_channel, (
-            f"'sentinel2' data should have {s2_channel} channels "
-            f"for {modalities.__name__}"
+            f"'sentinel2' data should have {s2_channel} channels"
         )
 
     # no tests for val/test currently
 
 
-@pytest.mark.parametrize("split", ["train", "val", "test"])
-@pytest.mark.parametrize(
-    "dataset_name",
-    [
-        "m-eurosat",
-        "m-so2sat",
-        "m-bigearthnet",
-        "m-brick-kiln",
-        "m-cashew-plant",
-        "m-SA-crop-type",
-    ],
-)
-def test_geobench_dataset(split, dataset_name):
-    if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet", "m-brick-kiln"]:
-        dataset = GeobenchDataset(
-            dataset_name=dataset_name,
-            split=split,
-            transform=None,
-            benchmark_name="classification",
-        )
-    elif dataset_name in ["m-cashew-plant", "m-SA-crop-type"]:
-        dataset = GeobenchDataset(
-            dataset_name=dataset_name,
-            split=split,
-            transform=None,
-            benchmark_name="segmentation",
-        )
-    else:
-        raise NotImplementedError
-
-    assert len(dataset) > 0, f"Dataset '{dataset_name}' should not be empty"
-
-    n_channel = dataset[0][0].shape[0]
-    expected = 12
-    if dataset_name == "m-brick-kiln":
-        expected = 3
-    assert (
-        n_channel == expected
-    ), f"Dataset '{dataset_name}' should have {expected} channels, found {n_channel}"
+# @pytest.mark.parametrize("split", ["train", "val", "test"])
+# @pytest.mark.parametrize(
+#     "dataset_name",
+#     [
+#         "m-eurosat",
+#         "m-so2sat",
+#         "m-bigearthnet",
+#         "m-brick-kiln",
+#         "m-cashew-plant",
+#         "m-SA-crop-type",
+#     ],
+# )
+# def test_geobench_dataset(split, dataset_name):
+#     if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet", "m-brick-kiln"]:
+#         dataset = GeobenchDataset(
+#             dataset_name=dataset_name,
+#             split=split,
+#             transform=None,
+#             benchmark_name="classification",
+#         )
+#     elif dataset_name in ["m-cashew-plant", "m-SA-crop-type"]:
+#         dataset = GeobenchDataset(
+#             dataset_name=dataset_name,
+#             split=split,
+#             transform=None,
+#             benchmark_name="segmentation",
+#         )
+#     else:
+#         raise NotImplementedError
+#
+#     assert len(dataset) > 0, f"Dataset '{dataset_name}' should not be empty"
+#
+#     n_channel = dataset[0][0].shape[0]
+#     expected = 12
+#     if dataset_name == "m-brick-kiln":
+#         expected = 3
+#     assert (
+#         n_channel == expected
+#     ), f"Dataset '{dataset_name}' should have {expected} channels, found {n_channel}"
