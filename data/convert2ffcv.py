@@ -10,7 +10,7 @@ def convert_mmearth(dataset):
     # Pass a type for each data field
     writer = DatasetWriter(write_path, {
         # Tune options to optimize dataset size, throughput at train-time
-        'sentinel2': NDArrayField(dtype=np.float32, shape=(12, 128, 128)),
+        'sentinel2': NDArrayField(dtype=np.dtype("float32"), shape=(12, 128, 128)),
         'biome': IntField(),
         'id': BytesField(),
     })
