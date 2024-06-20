@@ -8,6 +8,7 @@ from typing import Sequence, Union
 import ffcv
 import torch
 from ffcv.loader import OrderOption
+from ffcv.pipeline import PipelineSpec
 from ffcv.transforms import ToTensor
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
@@ -401,7 +402,7 @@ def pretrain(
     train_transform = METHODS[method]["transform"]
     if data_dir.suffix == ".beton":
         # Data decoding and augmentation
-        image_pipeline = train_transform
+        image_pipeline = PipelineSpec("sentinel2", transforms=train_transform)
         label_pipeline = [ ToTensor() ]
 
         # Pipeline for each data field
