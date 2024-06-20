@@ -5,7 +5,9 @@ from itertools import product
 from pathlib import Path
 from typing import Sequence, Union
 
+import ffcv
 import torch
+from ffcv.loader import OrderOption
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
@@ -31,6 +33,7 @@ from eval.knn import knn_eval
 from eval.linear import linear_eval
 from methods import modules
 from methods import transforms
+from methods.transforms import to_tensor
 
 # Argparser for all your configuration needs
 parser = ArgumentParser("MMEarth Benchmark")
@@ -40,7 +43,7 @@ parser.add_argument(
     type=Path,
     default=None,
     help="Path to the MMEarth dataset folder (default: None). "
-         "If not given the environment variable MMEARTH_DIR will be used",
+    "If not given the environment variable MMEARTH_DIR will be used",
 )
 parser.add_argument(
     "--log-dir",
@@ -62,7 +65,8 @@ parser.add_argument(
 )
 parser.add_argument(
     "--num-workers",
-    type=int,    default=8,
+    type=int,
+    default=8,
     help="Number of threads to use for data loading (default: 8).",
 )
 parser.add_argument(
@@ -213,8 +217,10 @@ def main(
     if data_dir is None:
         data_dir = MMEARTH_DIR
 
-    assert data_dir.exists(), (f"data folder does not exist: {data_dir}, "
-                               f"either --data-dir <folder> or set environment variable: export MMEARTH_DIR=<folder>")
+    assert data_dir.exists(), (
+        f"data folder does not exist: {data_dir}, "
+        f"either --data-dir <folder> or set environment variable: export MMEARTH_DIR=<folder>"
+    )
 
     # store the requested channel combination
     input_modality = IN_MODALITIES[input_channel]
@@ -228,9 +234,9 @@ def main(
         target_modality = None
         if skip_knn_eval or skip_linear_eval or skip_finetune_eval:
             print_rank_zero(
-            "if no target is set, all offline evaluation will be skipped "
-            "(e.g., add --skip-linear-eval --skip-finetune-eval --skip-knn-eval)"
-        )
+                "if no target is set, all offline evaluation will be skipped "
+                "(e.g., add --skip-linear-eval --skip-finetune-eval --skip-knn-eval)"
+            )
 
     else:
         target_modality = {target: MODALITIES_FULL[target]}
@@ -391,35 +397,67 @@ def pretrain(
     print_rank_zero(f"Running pretraining for {method}...")
 
     # Setup training data.
-    args = create_MMEearth_args(data_dir, input_modality, target_modality)
-
     train_transform = METHODS[method]["transform"]
-    train_dataset = MultimodalDataset(args, split="train", transform=train_transform, return_tuple=True)
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=batch_size_per_device,
-        shuffle=True,
-        num_workers=num_workers,
-        drop_last=True,
-        persistent_workers=num_workers > 0,
-        pin_memory=not accelerator == "cpu",
-    )
+    if data_dir.suffix == ".beton":
+        # Data decoding and augmentation
+        image_pipeline = train_transform
+        label_pipeline = [ to_tensor]
 
-    # Setup validation data.
-    val_dataset = MultimodalDataset(args, split="val", transform=None, return_tuple=True)
-    val_dataloader = None
-    if len(val_dataset) > 0:
-        val_dataloader = DataLoader(
-            val_dataset,
+        # Pipeline for each data field
+        train_pipelines = {"sentinel2": image_pipeline, "biome": label_pipeline}
+
+        # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
+        train_dataloader = ffcv.Loader(
+            data_dir,
             batch_size=batch_size_per_device,
-            shuffle=False,
             num_workers=num_workers,
-            drop_last=False,
+            order=OrderOption.QUASI_RANDOM,
+            pipelines=train_pipelines,
+            drop_last=True
+        )
+
+        val_pipelines = {"sentinel2": [to_tensor], "biome": [to_tensor]}
+        val_dataloader = ffcv.Loader(
+            data_dir, #TODO this must be a different file, JUST TESTING here
+            batch_size=batch_size_per_device,
+            num_workers=num_workers,
+            order=OrderOption.SEQUENTIAL,
+            pipelines=val_pipelines,
+            drop_last=False
+        )
+    else:
+        args = create_MMEearth_args(data_dir, input_modality, target_modality)
+
+        train_dataset = MultimodalDataset(
+            args, split="train", transform=train_transform, return_tuple=True
+        )
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=batch_size_per_device,
+            shuffle=True,
+            num_workers=num_workers,
+            drop_last=True,
             persistent_workers=num_workers > 0,
             pin_memory=not accelerator == "cpu",
         )
-    else:
-        print_rank_zero("No validation data found, skipping it...")
+
+        # Setup validation data.
+        val_dataset = MultimodalDataset(
+            args, split="val", transform=None, return_tuple=True
+        )
+        val_dataloader = None
+        if len(val_dataset) > 0:
+            val_dataloader = DataLoader(
+                val_dataset,
+                batch_size=batch_size_per_device,
+                shuffle=False,
+                num_workers=num_workers,
+                drop_last=False,
+                persistent_workers=num_workers > 0,
+                pin_memory=not accelerator == "cpu",
+            )
+        else:
+            print_rank_zero("No validation data found, skipping it...")
 
     # Train model.
     metric_callback = MetricCallback()
