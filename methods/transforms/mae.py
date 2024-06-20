@@ -1,13 +1,17 @@
-from typing import List, Tuple, Union
+from dataclasses import replace
+from typing import List, Tuple, Union, Callable, Optional
 
 import torchvision.transforms as T
 from PIL.Image import Image
+from ffcv.pipeline.allocation_query import AllocationQuery
+from ffcv.pipeline.operation import Operation
+from ffcv.pipeline.state import State
 from torch import Tensor
 
 from methods.transforms.base import to_tensor
 
 
-class MAETransform:
+class MAETransform(Operation):
     """Implements the view augmentation for MAE [0].
 
     Input to this transform:
@@ -31,10 +35,9 @@ class MAETransform:
     """
 
     def __init__(
-            self,
-            input_size: Union[int, Tuple[int, int]] = 224,
-            min_scale: float = 0.2,
+        self, input_size: Union[int, Tuple[int, int]] = 224, min_scale: float = 0.2
     ):
+        super().__init__()
         transforms = [
             to_tensor,
             T.RandomResizedCrop(
@@ -43,18 +46,36 @@ class MAETransform:
             T.RandomHorizontalFlip(),
         ]
 
+        self.input_size = input_size
         self.transform = T.Compose(transforms)
 
-    def __call__(self, image: Union[Tensor, Image]) -> List[Tensor]:
-        """
-        Applies the transforms to the input image.
+    def generate_code(self) -> Callable:
+        def transform(self, image: Union[Tensor, Image]) -> List[Tensor]:
+            """
+            Applies the transforms to the input image.
 
-        Args:
-            image:
-                The input image to apply the transforms to.
+            Args:
+                image:
+                    The input image to apply the transforms to.
 
-        Returns:
-            The transformed image.
+            Returns:
+                The transformed image.
 
-        """
-        return [self.transform(image)]
+            """
+            return [self.transform(image)]
+
+        return transform
+
+    def declare_state_and_memory(
+        self, previous_state: State
+    ) -> Tuple[State, Optional[AllocationQuery]]:
+        return (
+            replace(
+                previous_state,
+                shape=[
+                    (x[0], self.input_size, self.input_size)
+                    for x in previous_state.shape
+                ],
+            ),
+            None,
+        )
