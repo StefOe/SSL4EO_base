@@ -12,7 +12,7 @@ def convert_mmearth(dataset):
         'sentinel2': TorchTensorField(dtype=torch.float32, shape=(12, 128, 128)),
         'biome': IntField(),
         'id': BytesField(),
-    })
+    }, num_workers=2)
 
     # Write dataset
-    writer.from_indexed_dataset(dataset)
+    writer.from_indexed_dataset(dataset, shuffle_indices=True)
