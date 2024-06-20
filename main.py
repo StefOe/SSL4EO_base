@@ -399,7 +399,7 @@ def pretrain(
     print_rank_zero(f"Running pretraining for {method}...")
 
     # Setup training data.
-    train_transform = METHODS[method]["transform"]
+    train_transform = [METHODS[method]["transform"]]
     if data_dir.suffix == ".beton":
         # Data decoding and augmentation
         image_pipeline = PipelineSpec("sentinel2", transforms=train_transform)

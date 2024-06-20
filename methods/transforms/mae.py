@@ -3,12 +3,11 @@ from typing import List, Tuple, Union
 import torchvision.transforms as T
 from PIL.Image import Image
 from torch import Tensor
-from torch.nn import Module
 
 from methods.transforms.base import to_tensor
 
 
-class MAETransform(Module):
+class MAETransform:
     """Implements the view augmentation for MAE [0].
 
     Input to this transform:
@@ -32,11 +31,10 @@ class MAETransform(Module):
     """
 
     def __init__(
-        self,
-        input_size: Union[int, Tuple[int, int]] = 224,
-        min_scale: float = 0.2,
+            self,
+            input_size: Union[int, Tuple[int, int]] = 224,
+            min_scale: float = 0.2,
     ):
-        super().__init__()
         transforms = [
             to_tensor,
             T.RandomResizedCrop(
@@ -47,7 +45,7 @@ class MAETransform(Module):
 
         self.transform = T.Compose(transforms)
 
-    def forward(self, image: Union[Tensor, Image]) -> List[Tensor]:
+    def __call__(self, image: Union[Tensor, Image]) -> List[Tensor]:
         """
         Applies the transforms to the input image.
 
