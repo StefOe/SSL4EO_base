@@ -157,21 +157,21 @@ class MultimodalDataset(Dataset):
                 if modality != "dynamic_world"
                 else data
             )
-            data = torch.from_numpy(data)
             if modality in [
                 "biome",
                 "eco_region",
                 "dynamic_world",
                 "esa_worldcover",
             ]:
-                data = data.long()
+                data = data.astype(int)
             else:
-                data = data.float()
+                data = data.astype(np.dtype("float32"))
+
             return_dict[modality] = data
 
         # we also return the id, to differentiate between sentinel2_l1c and sentinel2_l2a, since this is given in the tile_info json file. To keep everything
         # consistent, we name the modality as sentinel2 instead of sentinel2_l1c or sentinel2_l2a
-        return_dict["id"] = name
+        return_dict["id"] = np.array(name)
 
         # apply transforms on normalized data
         if self.transform is not None:
