@@ -171,7 +171,6 @@ class SimCLRViewTransform:
         )
 
         transform = [
-            to_tensor,
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),

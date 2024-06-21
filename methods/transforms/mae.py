@@ -48,6 +48,21 @@ class MAETransform(Operation):
         self.input_size = input_size
         self.transform = T.Compose(transforms)
 
+    def __call__(self, image: Union[Tensor, Image]):
+        """
+        Applies the transforms to the input image.
+
+        Args:
+            image:
+                The input image to apply the transforms to.
+
+        Returns:
+            The transformed image.
+
+        """
+        transformed: Tensor = self.transform(image)
+        return [transformed]
+
     def generate_code(self) -> Callable:
         def transform(image: Union[Tensor, Image], _) -> List[Tensor]:
             """
@@ -61,7 +76,7 @@ class MAETransform(Operation):
                 The transformed image.
 
             """
-            return [self.transform(image)]
+            return self.__call__(image)
 
         return transform
 

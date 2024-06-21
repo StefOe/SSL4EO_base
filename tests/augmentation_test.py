@@ -4,6 +4,9 @@ from data import constants
 from data.constants import MMEARTH_DIR
 from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
 from methods import transforms
+from torchvision import transforms as T
+
+from methods.transforms import to_tensor
 
 input_size = 112
 
@@ -30,6 +33,7 @@ def test_augmentations(split, modalities, transform):
     args = create_MMEearth_args(MMEARTH_DIR, modalities, constants.MODALITIES_FULL)
 
     args.modalities = modalities
+    transform = T.Compose([to_tensor, transform])
     dataset = MultimodalDataset(args, split=split, transform=transform)
 
     if split == "train":
