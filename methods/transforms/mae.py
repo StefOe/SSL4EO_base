@@ -8,7 +8,7 @@ from ffcv.pipeline.operation import Operation
 from ffcv.pipeline.state import State
 from torch import Tensor
 
-from methods.transforms.base import to_tensor
+from methods.transforms.base import RandomVerticalFlip
 
 
 class MAETransform(Operation):

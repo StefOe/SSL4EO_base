@@ -1,18 +1,22 @@
-from typing import Optional, Tuple, Union
+from dataclasses import replace
+from typing import Optional, Tuple, Union, Callable
 
 import torchvision.transforms as T
 from PIL.Image import Image
+from ffcv.pipeline.allocation_query import AllocationQuery
+from ffcv.pipeline.operation import Operation
+from ffcv.pipeline.state import State
 from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
-from methods.transforms.base import to_tensor
+from methods.transforms.base import to_tensor, RandomVerticalFlip
 
 
 class BarlowTwinsView1Transform:
     def __init__(
             self,
-            input_size: int = 224,
+            input_size: int = 112,
             cj_prob: float = 0.8,
             cj_strength: float = 1.0,
             cj_bright: float = 0.4,
@@ -38,7 +42,6 @@ class BarlowTwinsView1Transform:
         )
 
         transform = [
-            to_tensor,
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
@@ -49,6 +52,7 @@ class BarlowTwinsView1Transform:
             # RandomSolarization(prob=solarization_prob),
         ]
         self.transform = T.Compose(transform)
+        self.input_size = input_size
 
     def __call__(self, image: Union[Tensor, Image]) -> Tensor:
         """
@@ -69,7 +73,7 @@ class BarlowTwinsView1Transform:
 class BarlowTwinsView2Transform:
     def __init__(
             self,
-            input_size: int = 224,
+            input_size: int = 112,
             cj_prob: float = 0.8,
             cj_strength: float = 1.0,
             cj_bright: float = 0.4,
@@ -95,7 +99,6 @@ class BarlowTwinsView2Transform:
         )
 
         transform = [
-            to_tensor,
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
@@ -106,6 +109,7 @@ class BarlowTwinsView2Transform:
             # RandomSolarization(prob=solarization_prob),
         ]
         self.transform = T.Compose(transform)
+        self.input_size = input_size
 
     def __call__(self, image: Union[Tensor, Image]) -> Tensor:
         """
@@ -123,7 +127,7 @@ class BarlowTwinsView2Transform:
         return transformed
 
 
-class BarlowTwinsTransform(MultiViewTransform):
+class BarlowTwinsTransform(MultiViewTransform, Operation):
     """Implements the transformations for BYOL[0].
 
     Input to this transform:
@@ -166,3 +170,20 @@ class BarlowTwinsTransform(MultiViewTransform):
         view_1_transform = view_1_transform or BarlowTwinsView1Transform()
         view_2_transform = view_2_transform or BarlowTwinsView2Transform()
         super().__init__(transforms=[view_1_transform, view_2_transform])
+        self.input_size  = self.transforms[0].input_size
+
+    def generate_code(self) -> Callable:
+        def transform(image: Union[Tensor, Image], _):
+            return self.__call__(image)
+        return transform
+
+    def declare_state_and_memory(
+        self, previous_state: State
+    ) -> Tuple[State, Optional[AllocationQuery]]:
+        return (
+            replace(
+                previous_state,
+                shape=(previous_state.shape[0], self.input_size, self.input_size),
+            ),
+            None,
+        )

@@ -1,7 +1,11 @@
-from typing import Optional, Tuple, Union
+from dataclasses import replace
+from typing import Optional, Tuple, Union, Callable
 
 import torchvision.transforms as T
 from PIL.Image import Image
+from ffcv.pipeline.allocation_query import AllocationQuery
+from ffcv.pipeline.operation import Operation
+from ffcv.pipeline.state import State
 from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
@@ -9,7 +13,7 @@ from torch import Tensor
 from methods.transforms.base import to_tensor
 
 
-class SimCLRTransform(MultiViewTransform):
+class SimCLRTransform(MultiViewTransform, Operation):
     """Implements the transformations for SimCLR [0, 1].
 
     Input to this transform:
@@ -82,23 +86,23 @@ class SimCLRTransform(MultiViewTransform):
     """
 
     def __init__(
-            self,
-            input_size: int = 224,
-            cj_prob: float = 0.8,
-            cj_strength: float = 1.0,
-            cj_bright: float = 0.8,
-            cj_contrast: float = 0.8,
-            cj_sat: float = 0.8,
-            cj_hue: float = 0.2,
-            min_scale: float = 0.08,
-            random_gray_scale: float = 0.2,
-            gaussian_blur: float = 0.5,
-            kernel_size: Optional[float] = None,
-            sigmas: Tuple[float, float] = (0.1, 2),
-            vf_prob: float = 0.0,
-            hf_prob: float = 0.5,
-            rr_prob: float = 0.0,
-            rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
+        self,
+        input_size: int = 224,
+        cj_prob: float = 0.8,
+        cj_strength: float = 1.0,
+        cj_bright: float = 0.8,
+        cj_contrast: float = 0.8,
+        cj_sat: float = 0.8,
+        cj_hue: float = 0.2,
+        min_scale: float = 0.08,
+        random_gray_scale: float = 0.2,
+        gaussian_blur: float = 0.5,
+        kernel_size: Optional[float] = None,
+        sigmas: Tuple[float, float] = (0.1, 2),
+        vf_prob: float = 0.0,
+        hf_prob: float = 0.5,
+        rr_prob: float = 0.0,
+        rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
     ):
         view_transform = SimCLRViewTransform(
             input_size=input_size,
@@ -119,27 +123,45 @@ class SimCLRTransform(MultiViewTransform):
             rr_degrees=rr_degrees,
         )
         super().__init__(transforms=[view_transform, view_transform])
+        self.input_size = input_size
+
+    def generate_code(self) -> Callable:
+        def transform(image: Union[Tensor, Image], _):
+            return self.__call__(image)
+
+        return transform
+
+    def declare_state_and_memory(
+        self, previous_state: State
+    ) -> Tuple[State, Optional[AllocationQuery]]:
+        return (
+            replace(
+                previous_state,
+                shape=(previous_state.shape[0], self.input_size, self.input_size),
+            ),
+            None,
+        )
 
 
 class SimCLRViewTransform:
     def __init__(
-            self,
-            input_size: int = 224,
-            cj_prob: float = 0.8,
-            cj_strength: float = 1.0,
-            cj_bright: float = 0.8,
-            cj_contrast: float = 0.8,
-            cj_sat: float = 0.8,
-            cj_hue: float = 0.2,
-            min_scale: float = 0.08,
-            random_gray_scale: float = 0.2,
-            gaussian_blur: float = 0.5,
-            kernel_size: Optional[float] = None,
-            sigmas: Tuple[float, float] = (0.1, 2),
-            vf_prob: float = 0.0,
-            hf_prob: float = 0.5,
-            rr_prob: float = 0.0,
-            rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
+        self,
+        input_size: int = 224,
+        cj_prob: float = 0.8,
+        cj_strength: float = 1.0,
+        cj_bright: float = 0.8,
+        cj_contrast: float = 0.8,
+        cj_sat: float = 0.8,
+        cj_hue: float = 0.2,
+        min_scale: float = 0.08,
+        random_gray_scale: float = 0.2,
+        gaussian_blur: float = 0.5,
+        kernel_size: Optional[float] = None,
+        sigmas: Tuple[float, float] = (0.1, 2),
+        vf_prob: float = 0.0,
+        hf_prob: float = 0.5,
+        rr_prob: float = 0.0,
+        rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
     ):
         color_jitter = T.ColorJitter(
             brightness=cj_strength * cj_bright,

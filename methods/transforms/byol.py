@@ -1,7 +1,11 @@
-from typing import Optional, Tuple, Union
+from dataclasses import replace
+from typing import Optional, Tuple, Union, Callable
 
 import torchvision.transforms as T
 from PIL.Image import Image
+from ffcv.pipeline.allocation_query import AllocationQuery
+from ffcv.pipeline.operation import Operation
+from ffcv.pipeline.state import State
 from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
@@ -42,7 +46,6 @@ class BYOLView1Transform:
         )
 
         transform = [
-            to_tensor,
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
@@ -53,6 +56,7 @@ class BYOLView1Transform:
             # RandomSolarization(prob=solarization_prob),
         ]
         self.transform = T.Compose(transform)
+        self.input_size  = input_size
 
     def __call__(self, image: Union[Tensor, Image]) -> Tensor:
         """
@@ -99,7 +103,6 @@ class BYOLView2Transform:
         )
 
         transform = [
-            to_tensor,
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
             random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
             T.RandomHorizontalFlip(p=hf_prob),
@@ -110,6 +113,7 @@ class BYOLView2Transform:
             # RandomSolarization(prob=solarization_prob),
         ]
         self.transform = T.Compose(transform)
+        self.input_size  = input_size
 
     def __call__(self, image: Union[Tensor, Image]) -> Tensor:
         """
@@ -127,7 +131,7 @@ class BYOLView2Transform:
         return transformed
 
 
-class BYOLTransform(MultiViewTransform):
+class BYOLTransform(MultiViewTransform, Operation):
     """Implements the transformations for BYOL[0].
 
     Input to this transform:
@@ -170,3 +174,20 @@ class BYOLTransform(MultiViewTransform):
         view_1_transform = view_1_transform or BYOLView1Transform()
         view_2_transform = view_2_transform or BYOLView2Transform()
         super().__init__(transforms=[view_1_transform, view_2_transform])
+        self.input_size  = self.transforms[0].input_size
+
+    def generate_code(self) -> Callable:
+        def transform(image: Union[Tensor, Image], _):
+            return self.__call__(image)
+        return transform
+
+    def declare_state_and_memory(
+        self, previous_state: State
+    ) -> Tuple[State, Optional[AllocationQuery]]:
+        return (
+            replace(
+                previous_state,
+                shape=(previous_state.shape[0], self.input_size, self.input_size),
+            ),
+            None,
+        )
