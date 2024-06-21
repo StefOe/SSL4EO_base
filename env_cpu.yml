@@ -9,6 +9,8 @@ dependencies:
   - cpuonly
   - torchvision
   - tqdm
+  - numpy<2.0
+  - numba
   - einops
   - wandb
   - pytorch-lightning
