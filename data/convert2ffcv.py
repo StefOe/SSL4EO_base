@@ -9,7 +9,7 @@ def convert_mmearth(dataset):
     writer = DatasetWriter(write_path, {
         # Tune options to optimize dataset size, throughput at train-time
         'sentinel2': NDArrayField(dtype=np.dtype("float32"), shape=(12, 128, 128)),
-        'biome': IntField(),
+        'label': IntField(),
     }, num_workers=2)
 
     # Write dataset

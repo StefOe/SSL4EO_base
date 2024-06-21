@@ -406,7 +406,7 @@ def pretrain(
         label_pipeline = [IntDecoder(), ToTensor(), Squeeze([1])]
 
         # Pipeline for each data field
-        train_pipelines = {"sentinel2": image_pipeline, "biome": label_pipeline}
+        train_pipelines = {"sentinel2": image_pipeline, "label": label_pipeline}
 
         # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
         train_dataloader = ffcv.Loader(
@@ -418,15 +418,8 @@ def pretrain(
             drop_last=True,
         )
 
-        val_pipelines = {"sentinel2": [NDArrayDecoder(), ToTensor()], "biome": [IntDecoder(), ToTensor(), Squeeze([1])]}
-        val_dataloader = ffcv.Loader(
-            data_dir,  # TODO this must be a different file, JUST TESTING here
-            batch_size=batch_size_per_device,
-            num_workers=num_workers,
-            order=OrderOption.SEQUENTIAL,
-            pipelines=val_pipelines,
-            drop_last=False,
-        )
+        val_pipelines = {"sentinel2": [NDArrayDecoder(), ToTensor()], "label": [IntDecoder(), ToTensor(), Squeeze([1])]}
+        val_dataloader = None
     else:
         args = create_MMEearth_args(data_dir, input_modality, target_modality)
 
