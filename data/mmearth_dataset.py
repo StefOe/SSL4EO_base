@@ -48,7 +48,6 @@ class MMEarthDataset(Dataset):
         # mean, std, min and max of each band
         self.norm_stats = args.band_stats
 
-        self.no_target = len(args.modalities) == 1
         self.return_tuple = return_tuple
 
     def apply_transform(self, return_dict: dict):
@@ -184,10 +183,6 @@ class MMEarthDataset(Dataset):
         # apply transforms on normalized data
         if self.transform is not None:
             return_dict = self.apply_transform(return_dict)
-
-        # create dummy entry to fulfil the fantasy of always getting back a tuple of form (input, label)
-        if self.no_target:
-            return_dict["dummy"] = None
 
         if self.return_tuple:
             return tuple(return_dict.values())
