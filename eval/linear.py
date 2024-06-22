@@ -27,6 +27,7 @@ def linear_eval(
     devices: int,
     precision: str,
     num_classes: int,
+    no_ffcv: bool,
     debug: bool = False,
 ) -> None:
     """Runs a linear evaluation on the given model.
@@ -65,6 +66,8 @@ def linear_eval(
         target_modality,
         num_workers,
         batch_size_per_device,
+        ["train, val"],
+        no_ffcv,
     )
 
     # Train linear classifier.

@@ -141,6 +141,11 @@ parser.add_argument(
     help="If set, fine-tuning evaluation will be skipped.",
 )
 parser.add_argument(
+    "--no-ffcv",
+    action="store_true",
+    help="If set, pretraining will be done with regular pytorch DataLoader instead of ffcv.Loader (should be slow).",
+)
+parser.add_argument(
     "--geobench-datasets",
     type=str,
     nargs="+",
@@ -205,6 +210,7 @@ def main(
     geobench_datasets: Union[Sequence[str], None],
     geobench_partitions: Union[Sequence[str], None],
     ckpt_path: Union[Path, None],
+    no_ffcv: bool,
     debug: bool = False,
 ) -> None:
     if data_dir is None:
@@ -263,28 +269,31 @@ def main(
             print_rank_zero("Compiling model...")
             model = torch.compile(model)
 
+        default_config = {
+            "model": model,
+            "num_classes": num_classes,
+            "input_modality": input_modality,
+            "target_modality": target_modality,
+            "data_dir": data_dir,
+            "processed_dir": processed_dir,
+            "log_dir": method_dir,
+            "batch_size_per_device": batch_size_per_device,
+            "num_workers": num_workers,
+            "accelerator": accelerator,
+            "devices": devices,
+            "precision": precision,
+            "no_ffcv": no_ffcv,
+            "debug": debug,
+        }
+
         if epochs <= 0:
             print_rank_zero("Epochs <= 0, skipping pretraining.")
             if ckpt_path is not None:
                 model.load_state_dict(torch.load(ckpt_path)["state_dict"])
         else:
-            pretrain(
-                model=model,
-                method=method,
-                input_modality=input_modality,
-                target_modality=target_modality,
-                data_dir=data_dir,
-                processed_dir=processed_dir,
-                log_dir=method_dir,
-                batch_size_per_device=batch_size_per_device,
-                epochs=epochs,
-                num_workers=num_workers,
-                accelerator=accelerator,
-                devices=devices,
-                precision=precision,
-                ckpt_path=ckpt_path,
-                debug=debug,
-            )
+            pretrain_config = default_config.copy()
+            pretrain_config[epochs] = epochs
+            pretrain(*pretrain_config)
 
         if not geobench_datasets:
             print_rank_zero("Skipping geobench eval.")
@@ -321,55 +330,17 @@ def main(
         if skip_knn_eval:
             print_rank_zero("Skipping KNN eval.")
         else:
-            knn_eval(
-                model=model,
-                num_classes=num_classes,
-                input_modality=input_modality,
-                target_modality=target_modality,
-                data_dir=data_dir,
-                log_dir=method_dir,
-                batch_size_per_device=batch_size_per_device,
-                num_workers=num_workers,
-                accelerator=accelerator,
-                devices=devices,
-                debug=debug,
-            )
+            knn_eval(*default_config)
 
         if skip_linear_eval:
             print_rank_zero("Skipping linear eval.")
         else:
-            linear_eval(
-                model=model,
-                num_classes=num_classes,
-                input_modality=input_modality,
-                target_modality=target_modality,
-                data_dir=data_dir,
-                log_dir=method_dir,
-                batch_size_per_device=batch_size_per_device,
-                num_workers=num_workers,
-                accelerator=accelerator,
-                devices=devices,
-                precision=precision,
-                debug=debug,
-            )
+            linear_eval(*default_config)
 
         if skip_finetune_eval:
             print_rank_zero("Skipping fine-tune eval.")
         else:
-            finetune_eval(
-                model=model,
-                num_classes=num_classes,
-                input_modality=input_modality,
-                target_modality=target_modality,
-                data_dir=data_dir,
-                log_dir=method_dir,
-                batch_size_per_device=batch_size_per_device,
-                num_workers=num_workers,
-                accelerator=accelerator,
-                devices=devices,
-                precision=precision,
-                debug=debug,
-            )
+            finetune_eval(*default_config)
 
 
 def pretrain(
@@ -387,6 +358,7 @@ def pretrain(
     devices: int,
     precision: str,
     ckpt_path: Union[Path, None],
+    no_ffcv: bool,
     debug: bool = False,
 ) -> None:
     print_rank_zero(f"Running pretraining for {method}...")
@@ -401,6 +373,8 @@ def pretrain(
         target_modality,
         num_workers,
         batch_size_per_device,
+        ["train, val"],
+        no_ffcv,
     )
 
     # Train model.

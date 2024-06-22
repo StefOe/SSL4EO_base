@@ -24,6 +24,7 @@ def knn_eval(
     accelerator: str,
     devices: int,
     num_classes: int,
+    no_ffcv: bool,
     debug: bool = False,
 ) -> None:
     """Runs KNN evaluation on the given model.
@@ -51,6 +52,8 @@ def knn_eval(
         target_modality,
         num_workers,
         batch_size_per_device,
+        ["train, val"],
+        no_ffcv,
     )
 
     classifier = KNNClassifier(

@@ -1,7 +1,10 @@
+import shutil
+from pathlib import Path
+
 import numpy as np
 import pytest
 
-from data import GeobenchDataset
+from data import GeobenchDataset, get_mmearth_dataloaders
 from data import MMEarthDataset, create_MMEearth_args
 from data import constants
 
@@ -9,7 +12,7 @@ from data import constants
 @pytest.mark.parametrize("split", ["train", "val", "test"])
 @pytest.mark.parametrize(
     "modalities",
-    [constants.OUT_MODALITIES, constants.INP_MODALITIES, constants.RGB_MODALITIES],
+    [constants.INP_MODALITIES, constants.RGB_MODALITIES],
 )
 @pytest.mark.parametrize(
     "target_modalities",
@@ -46,6 +49,36 @@ def test_mmearth_dataset(split, modalities, target_modalities):
         ), f"'sentinel2' data should have {s2_channel} channels"
 
     # no tests for val/test currently
+
+
+@pytest.mark.parametrize(
+    "modalities",
+    [constants.INP_MODALITIES, constants.RGB_MODALITIES],
+)
+@pytest.mark.parametrize(
+    "target_modalities",
+    [
+        {"biome": constants.MODALITIES_FULL["biome"]},
+        {"eco_region": constants.MODALITIES_FULL["eco_region"]},
+    ],
+)
+@pytest.mark.parametrize(
+    "no_ffcv", [False, True],
+)
+def test_mmearth_dataloader(modalities, target_modalities, no_ffcv):
+    test_out = Path("test_out")
+    test_out.mkdir(exist_ok=True)
+
+    try:
+        loader = get_mmearth_dataloaders(None, constants.MMEARTH_DIR, test_out,
+                                modalities, target_modalities, 2, 2, ["train"], no_ffcv)
+
+        for data in loader:
+            break
+    finally:
+        # cleanup
+        shutil.rmtree(test_out, ignore_errors=True)
+
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
