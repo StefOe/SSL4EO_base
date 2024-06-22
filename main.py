@@ -273,7 +273,6 @@ def main(
 
         default_config = {
             "model": model,
-            "num_classes": num_classes,
             "input_modality": input_modality,
             "target_modality": target_modality,
             "data_dir": data_dir,
@@ -331,20 +330,22 @@ def main(
         else:
             print_rank_zero(f"Starting offline eval of '{target}' target.")
 
+        eval_config = default_config.copy()
+        eval_config["num_classes"] = num_classes
         if skip_knn_eval:
             print_rank_zero("Skipping KNN eval.")
         else:
-            knn_eval(**default_config)
+            knn_eval(**eval_config)
 
         if skip_linear_eval:
             print_rank_zero("Skipping linear eval.")
         else:
-            linear_eval(**default_config)
+            linear_eval(**eval_config)
 
         if skip_finetune_eval:
             print_rank_zero("Skipping fine-tune eval.")
         else:
-            finetune_eval(**default_config)
+            finetune_eval(**eval_config)
 
 
 def pretrain(
