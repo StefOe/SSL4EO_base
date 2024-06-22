@@ -49,6 +49,7 @@ def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str])
     args.methods = [methods]
     args.target = None
     args.geobench_datasets = geobench_datasets
+    args.epochs = 0
 
     try:
         main(**vars(args), debug=True)
