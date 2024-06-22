@@ -34,6 +34,7 @@ def args():
     args.skip_linear_eval = False
     args.skip_finetune_eval = False
     args.ckpt_path = None
+    args.no_ffcv = True
 
     return args
 
