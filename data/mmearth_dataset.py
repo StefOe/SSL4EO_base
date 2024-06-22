@@ -366,7 +366,7 @@ def get_mmearth_dataloaders(
 
         # Data decoding and augmentation
         # Pipeline for each data field
-        if is_train:
+        if is_train and train_transform is not None:
             pipelines = {
                 "sentinel2": [NDArrayDecoder(), ToTensor(), train_transform],
             }

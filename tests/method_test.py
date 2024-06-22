@@ -14,6 +14,7 @@ def args():
     data_root = Path("./datasets/data_1k")
     assert data_root.exists(), f"need data (in {data_root}) to test this"
     args.data_dir = data_root
+    args.processed_dir = None
     args.log_dir = Path("test_out")
     args.batch_size_per_device = 2
     args.epochs = 2
