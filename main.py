@@ -491,9 +491,9 @@ def pretrain(
     )
     if target_modality is not None and not debug:
         if val_dataloader is None:
-            for metric in ["train_top1", "train_top5"]:
+            for metric in ["train_online_cls_top1", "train_online_cls_top5"]:
                 print_rank_zero(
-                    f"max finetune {metric}: {max(metric_callback.train_metrics[metric])}"
+                    f"max {metric}: {max(metric_callback.train_metrics[metric])}"
                 )
         else:
             for metric in ["val_online_cls_top1", "val_online_cls_top5"]:
