@@ -302,7 +302,7 @@ def get_mmearth_dataloaders(
 
     # reverse lookup target modality
     if target_modality is None:
-        target_name = None
+        target_name = ""
     else:
         # only one task supported TODO
         target_name = list(target_modality.keys())[0]
