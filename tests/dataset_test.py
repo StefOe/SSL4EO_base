@@ -3,8 +3,8 @@ import pytest
 
 from data import constants
 from data.constants import MMEARTH_DIR
-from data.geobench_dataset import GeobenchDataset
-from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args
+from data import GeobenchDataset
+from data import MMEarthDataset, create_MMEearth_args
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
