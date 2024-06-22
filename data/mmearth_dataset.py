@@ -296,16 +296,16 @@ def get_mmearth_dataloaders(
     """
     if splits is None:
         splits = ["train", "val"]
-    # reverse lookup input modality
-    ivd = {v: k for k, v in IN_MODALITIES.items()}
-    input_name = ivd[input_modality]
+    # lookup input modality
+    # only one input modality at a time supported TODO
+    input_name = list(input_modality.keys())[0]
 
     # reverse lookup target modality
     if target_modality is None:
         target_name = None
     else:
-        ivd = {v: k for k, v in MODALITIES_FULL.items()}
-        target_name = ivd[target_modality].replace("_", "-")
+        # only one task supported TODO
+        target_name = list(target_modality.keys())[0]
 
     dataloaders = []
     for split in splits:
@@ -364,12 +364,12 @@ def get_mmearth_dataloaders(
         if is_train:
             pipelines = {
                 "sentinel2": [NDArrayDecoder(), ToTensor(), train_transform],
-                "label": [IntDecoder(), ToTensor(), Squeeze([1])],
+                "label": [IntDecoder(), ToTensor(), Squeeze([1])], # this will only work for classification TODO
             }
         else:
             pipelines = {
                 "sentinel2": [NDArrayDecoder(), ToTensor()],
-                "label": [IntDecoder(), ToTensor(), Squeeze([1])],
+                "label": [IntDecoder(), ToTensor(), Squeeze([1])], # this will only work for classification TODO
             }
 
         # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
