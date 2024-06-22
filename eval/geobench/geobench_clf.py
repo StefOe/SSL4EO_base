@@ -75,7 +75,6 @@ def geobench_clf_eval(
         shuffle=True,
         num_workers=num_workers,
         drop_last=True,
-        persistent_workers=num_workers > 0,
     )
 
     # Setup validation data.
@@ -93,7 +92,6 @@ def geobench_clf_eval(
             shuffle=False,
             num_workers=num_workers,
             drop_last=False,
-            persistent_workers=num_workers > 0,
         )
     else:
         print_rank_zero("No validation data found, skipping it...")
