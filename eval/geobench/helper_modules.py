@@ -28,11 +28,12 @@ class LinearMultiLabelClassifier(LinearClassifier):
 
     def shared_step(
         self, batch: Tuple[Tensor, ...], batch_idx: int
-    ) -> Tuple[Tensor, Dict[str, Tensor]]:
+    ) -> Tuple[Tensor, Dict[str, float]]:
         images, targets = batch[0], batch[1]
         predictions = self.forward(images)
         loss = self.criterion(predictions, targets.to(predictions.dtype))
 
+        metrics = {}
         acc_glob = accuracy(
             predictions,
             targets,
@@ -40,14 +41,14 @@ class LinearMultiLabelClassifier(LinearClassifier):
             num_labels=self.num_classes,
             average="micro",
         )
-        acc_cls = accuracy(
-            predictions,
-            targets,
-            task="multilabel",
-            num_labels=self.num_classes,
-            average="none",
-        )
-        metrics = {f"acc cls-{i}": value.item() for i, value in enumerate(acc_cls)}
+        # acc_cls = accuracy(
+        #     predictions,
+        #     targets,
+        #     task="multilabel",
+        #     num_labels=self.num_classes,
+        #     average="none",
+        # )
+        # metrics = {f"acc cls-{i}": value.item() for i, value in enumerate(acc_cls)}
         metrics["acc"] = acc_glob.item()
 
         f1_glob = f1_score(
@@ -57,14 +58,14 @@ class LinearMultiLabelClassifier(LinearClassifier):
             num_labels=self.num_classes,
             average="micro",
         )
-        f1_cls = f1_score(
-            predictions,
-            targets,
-            task="multilabel",
-            num_labels=self.num_classes,
-            average="none",
-        )
-        metrics.update({f"f1 cls-{i}": value.item() for i, value in enumerate(f1_cls)})
+        # f1_cls = f1_score(
+        #     predictions,
+        #     targets,
+        #     task="multilabel",
+        #     num_labels=self.num_classes,
+        #     average="none",
+        # )
+        # metrics.update({f"f1 cls-{i}": value.item() for i, value in enumerate(f1_cls)})
         metrics["f1"] = f1_glob.item()
 
         return loss, metrics
