@@ -159,6 +159,11 @@ parser.add_argument(
     nargs="+",
     help="Amount of GeoBench data to train on (default: 'default').",
 )
+parser.add_argument(
+    "--debug",
+    action="store_true",
+    help="If set, run in debug mode (for code checking).",
+)
 
 METHODS = {
     "barlowtwins": {
