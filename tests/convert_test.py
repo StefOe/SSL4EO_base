@@ -3,8 +3,7 @@ from pathlib import Path
 
 from data import constants
 from data.constants import MMEARTH_DIR
-from data.geobench_dataset import convert_mmearth_to_beton
-from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args
+from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args, convert_mmearth_to_beton
 
 
 def test_mmearth_dataset():
