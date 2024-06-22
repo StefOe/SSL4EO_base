@@ -374,22 +374,20 @@ def get_mmearth_dataloaders(
         if is_train:
             pipelines = {
                 "sentinel2": [NDArrayDecoder(), ToTensor(), train_transform],
-                "label": [
-                    IntDecoder(),
-                    ToTensor(),
-                    Squeeze([1]),
-                ],  # this will only work for classification TODO
             }
         else:
             pipelines = {
                 "sentinel2": [NDArrayDecoder(), ToTensor()],
+            }
+
+        if target_modality is not None:
+            pipelines.update({
                 "label": [
                     IntDecoder(),
                     ToTensor(),
                     Squeeze([1]),
                 ],  # this will only work for classification TODO
-            }
-
+            })
         # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
         train_dataloader = ffcv.Loader(
             beton_file,
