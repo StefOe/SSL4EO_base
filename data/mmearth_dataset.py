@@ -460,7 +460,7 @@ def convert_mmearth_to_beton(
             len(dataset.modalities) == 2
         ), f"only two modalities should be returned, got: {dataset.modalities.keys()}"
         target_name, targets = [
-            (k, v) for k, v in dataset.modalities.item() if k != "sentinel2"
+            (k, v) for k, v in dataset.modalities.items() if k != "sentinel2"
         ][0]
         c = len(targets)  # number targets
         supervised_task = MODALITY_TASK[target_name]
