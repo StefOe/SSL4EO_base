@@ -293,7 +293,7 @@ def main(
         else:
             pretrain_config = default_config.copy()
             pretrain_config[epochs] = epochs
-            pretrain(*pretrain_config)
+            pretrain(**pretrain_config)
 
         if not geobench_datasets:
             print_rank_zero("Skipping geobench eval.")
@@ -330,17 +330,17 @@ def main(
         if skip_knn_eval:
             print_rank_zero("Skipping KNN eval.")
         else:
-            knn_eval(*default_config)
+            knn_eval(**default_config)
 
         if skip_linear_eval:
             print_rank_zero("Skipping linear eval.")
         else:
-            linear_eval(*default_config)
+            linear_eval(**default_config)
 
         if skip_finetune_eval:
             print_rank_zero("Skipping fine-tune eval.")
         else:
-            finetune_eval(*default_config)
+            finetune_eval(**default_config)
 
 
 def pretrain(

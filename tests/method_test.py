@@ -38,8 +38,26 @@ def args():
 
     return args
 
+
+@pytest.mark.parametrize("target", ["biome", "eco_region", None])
+def test_ffcv(args, target):
+    args.log_dir.mkdir(exist_ok=True)
+    args.methods = ["vicreg"]
+    args.target = target
+    args.no_ffcv = False
+    args.processed_dir = args.log_dir
+
+    try:
+        main(**vars(args), debug=True)
+    finally:
+        # cleanup
+        shutil.rmtree(args.log_dir, ignore_errors=True)
+
+
 @pytest.mark.parametrize("methods", [k for k in METHODS])
-@pytest.mark.parametrize("geobench_datasets", [["m-eurosat"], ["m-so2sat"], ["m-bigearthnet"]])
+@pytest.mark.parametrize(
+    "geobench_datasets", [["m-eurosat"], ["m-so2sat"], ["m-bigearthnet"]]
+)
 def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str]):
     args.log_dir.mkdir(exist_ok=True)
     args.methods = [methods]
@@ -51,6 +69,7 @@ def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str])
     finally:
         # cleanup
         shutil.rmtree(args.log_dir, ignore_errors=True)
+
 
 @pytest.mark.parametrize("methods", [k for k in METHODS])
 @pytest.mark.parametrize("target", ["biome", "eco_region", None])
