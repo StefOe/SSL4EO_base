@@ -294,6 +294,11 @@ def get_mmearth_dataloaders(
     - The `ffcv.Loader` is used to create the data loaders with appropriate pipelines for training and validation.
 
     """
+    if processed_dir is None:
+        processed_dir = data_dir
+    else:
+        processed_dir.mkdir(exist_ok=True)
+
     if splits is None:
         splits = ["train", "val"]
     # lookup input modality
