@@ -20,7 +20,9 @@ from data import get_mmearth_dataloaders
 from data.constants import (
     MODALITIES_FULL,
     CLASSIFICATION_CLASSES,
-    MMEARTH_DIR, input_size, IN_MODALITIES,
+    MMEARTH_DIR,
+    input_size,
+    IN_MODALITIES,
 )
 from eval import finetune_eval, geobench_clf_eval, knn_eval, linear_eval
 from methods import modules
@@ -286,13 +288,15 @@ def main(
             "debug": debug,
         }
 
+        if ckpt_path is not None:
+            print_rank_zero(f"Loading model weights from {ckpt_path}")
+            model.load_state_dict(torch.load(ckpt_path)["state_dict"])
+
         if epochs <= 0:
             print_rank_zero("Epochs <= 0, skipping pretraining.")
-            if ckpt_path is not None:
-                model.load_state_dict(torch.load(ckpt_path)["state_dict"])
         else:
             pretrain_config = default_config.copy()
-            pretrain_config[epochs] = epochs
+            pretrain_config["epochs"] = epochs
             pretrain(**pretrain_config)
 
         if not geobench_datasets:
