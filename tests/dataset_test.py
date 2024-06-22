@@ -4,7 +4,6 @@ import pytest
 from data import GeobenchDataset
 from data import MMEarthDataset, create_MMEearth_args
 from data import constants
-from data.constants import MMEARTH_DIR
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
@@ -20,7 +19,7 @@ from data.constants import MMEARTH_DIR
     ],
 )
 def test_mmearth_dataset(split, modalities, target_modalities):
-    args = create_MMEearth_args(MMEARTH_DIR, modalities, target_modalities)
+    args = create_MMEearth_args(constants.MMEARTH_DIR, modalities, target_modalities)
 
     dataset = MMEarthDataset(args, split=split, transform=None)
 
