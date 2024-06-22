@@ -39,7 +39,7 @@ class LinearMultiLabelClassifier(LinearClassifier):
             targets,
             task="multilabel",
             num_labels=self.num_classes,
-            average="micro",
+            average="macro",
         )
         # acc_cls = accuracy(
         #     predictions,
@@ -56,7 +56,7 @@ class LinearMultiLabelClassifier(LinearClassifier):
             targets,
             task="multilabel",
             num_labels=self.num_classes,
-            average="micro",
+            average="macro",
         )
         # f1_cls = f1_score(
         #     predictions,
