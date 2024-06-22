@@ -18,11 +18,9 @@ from pytorch_lightning.loggers import WandbLogger
 import wandb
 from data import get_mmearth_dataloaders
 from data.constants import (
-    INP_MODALITIES,
-    RGB_MODALITIES,
     MODALITIES_FULL,
     CLASSIFICATION_CLASSES,
-    MMEARTH_DIR,
+    MMEARTH_DIR, input_size, IN_MODALITIES,
 )
 from eval import finetune_eval, geobench_clf_eval, knn_eval, linear_eval
 from methods import modules
@@ -155,8 +153,6 @@ parser.add_argument(
     help="Amount of GeoBench data to train on (default: 'default').",
 )
 
-ori_input_size = 128
-input_size = 112
 METHODS = {
     "barlowtwins": {
         "model": modules.BarlowTwins,
@@ -184,11 +180,6 @@ METHODS = {
         "model": partial(modules.MAE, img_size=input_size),
         "transform": transforms.MAETransform(input_size=input_size),
     },
-}
-
-IN_MODALITIES = {
-    "all": INP_MODALITIES,
-    "rgb": RGB_MODALITIES,
 }
 
 

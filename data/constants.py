@@ -188,3 +188,9 @@ CLASSIFICATION_CLASSES = {
     "eco_region": 846,
     None: 0,
 }
+ori_input_size = 128
+input_size = 112
+IN_MODALITIES = {
+    "all": INP_MODALITIES,
+    "rgb": RGB_MODALITIES,
+}
