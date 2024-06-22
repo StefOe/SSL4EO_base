@@ -337,7 +337,7 @@ def get_mmearth_dataloaders(
                 transform = None
             else:
                 transform = (
-                    Compose([to_tensor, train_transform]) if is_train else to_tensor
+                    Compose([to_tensor, train_transform]) if (is_train and train_transform is not None) else to_tensor
                 )
             args = create_MMEearth_args(data_dir, input_modality, target_modality)
             dataset = MMEarthDataset(
