@@ -66,7 +66,7 @@ def linear_eval(
         target_modality,
         num_workers,
         batch_size_per_device,
-        ["train, val"],
+        ["train", "val"],
         no_ffcv,
     )
 

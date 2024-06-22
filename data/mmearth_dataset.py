@@ -297,6 +297,8 @@ def get_mmearth_dataloaders(
     - The `ffcv.Loader` is used to create the data loaders with appropriate pipelines for training and validation.
 
     """
+    if splits is None:
+        splits = ["train", "val"]
     assert not no_ffcv or (
         no_ffcv and indices is None
     ), "Providing indices is not supported in no_ffcv mode."
@@ -310,8 +312,6 @@ def get_mmearth_dataloaders(
     else:
         processed_dir.mkdir(exist_ok=True)
 
-    if splits is None:
-        splits = ["train", "val"]
     # lookup input modality
     # only one input modality at a time supported TODO
     input_name = list(input_modality.keys())[0].replace("_", "-")
