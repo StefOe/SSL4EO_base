@@ -5,8 +5,8 @@ import numpy as np
 from ffcv.fields import NDArrayField, IntField, FloatField
 from ffcv.writer import DatasetWriter
 
-from data.constants import MODALITY_TASK
-from data.mmearth_dataset import MMEarthDataset
+from .constants import MODALITY_TASK
+from .mmearth_dataset import MMEarthDataset
 
 
 def convert_mmearth(
@@ -78,9 +78,13 @@ def convert_mmearth(
     # if more than 1 modality is selected, we expect the second one to be the supervised task
     if len(dataset.modalities) >= 2:
         # only supporting single task here, so check the task and prepare fiel accordingly
-        assert len(dataset.modalities) == 2, f"only two modalities should be returned, got: {dataset.modalities.keys()}"
-        target_name, targets = [(k, v) for k, v in dataset.modalities.item() if k!="sentinel2"][0]
-        c = len(targets) # number targets
+        assert (
+            len(dataset.modalities) == 2
+        ), f"only two modalities should be returned, got: {dataset.modalities.keys()}"
+        target_name, targets = [
+            (k, v) for k, v in dataset.modalities.item() if k != "sentinel2"
+        ][0]
+        c = len(targets)  # number targets
         supervised_task = MODALITY_TASK[target_name]
 
         if supervised_task == "classification":
@@ -93,7 +97,12 @@ def convert_mmearth(
 
         elif supervised_task == "segmentation":
             fields.update(
-                {"label": NDArrayField(dtype=np.dtype("int64"), shape=(c, input_shape[1], input_shape[2]))}
+                {
+                    "label": NDArrayField(
+                        dtype=np.dtype("int64"),
+                        shape=(c, input_shape[1], input_shape[2]),
+                    )
+                }
             )
         elif supervised_task == "regression":
             if c == 1:
@@ -104,7 +113,12 @@ def convert_mmearth(
                 )
         elif supervised_task == "regression_map":
             fields.update(
-                {"label": NDArrayField(dtype=np.dtype("float32"), shape=(c, input_shape[1], input_shape[2]))}
+                {
+                    "label": NDArrayField(
+                        dtype=np.dtype("float32"),
+                        shape=(c, input_shape[1], input_shape[2]),
+                    )
+                }
             )
 
     # Pass a type for each data field

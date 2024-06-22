@@ -1,11 +1,10 @@
 import pytest
+from torchvision import transforms as T
 
 from data import constants
 from data.constants import MMEARTH_DIR
 from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args
 from methods import transforms
-from torchvision import transforms as T
-
 from methods.transforms import to_tensor
 
 input_size = 112

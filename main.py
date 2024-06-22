@@ -16,6 +16,7 @@ from pytorch_lightning.callbacks import (
 from pytorch_lightning.loggers import WandbLogger
 
 import wandb
+from data import get_mmearth_dataloaders
 from data.constants import (
     INP_MODALITIES,
     RGB_MODALITIES,
@@ -23,7 +24,6 @@ from data.constants import (
     CLASSIFICATION_CLASSES,
     MMEARTH_DIR,
 )
-from data import get_mmearth_dataloaders
 from eval import finetune_eval, geobench_clf_eval, knn_eval, linear_eval
 from methods import modules
 from methods import transforms

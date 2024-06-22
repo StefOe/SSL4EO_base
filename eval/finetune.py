@@ -9,15 +9,11 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 from torch.nn import Module
 from torch.optim import SGD
-from torch.utils.data import DataLoader
 from torchvision import transforms as T
 
 from data.mmearth_dataset import (
-    create_MMEearth_args,
-    MMEarthDataset,
     get_mmearth_dataloaders,
 )
-from methods.transforms import to_tensor
 
 
 class FinetuneEvalClassifier(LinearClassifier):

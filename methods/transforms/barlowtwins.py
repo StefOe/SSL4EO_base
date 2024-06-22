@@ -10,8 +10,6 @@ from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
-from methods.transforms.base import to_tensor, RandomVerticalFlip
-
 
 class BarlowTwinsView1Transform:
     def __init__(

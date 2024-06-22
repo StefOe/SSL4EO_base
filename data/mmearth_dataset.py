@@ -16,10 +16,10 @@ from lightly.utils.dist import print_rank_zero
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Compose
 
-from data.constants import NO_DATA_VAL, MODALITIES_FULL, MODALITY_TASK
-from data.convert2ffcv import convert_mmearth
 from main import IN_MODALITIES, ori_input_size
 from methods.transforms import to_tensor
+from .constants import NO_DATA_VAL, MODALITIES_FULL, MODALITY_TASK
+from .convert2ffcv import convert_mmearth
 
 
 ##################### FUNCTIONS FOR PRETRAINING DATASETS #####################

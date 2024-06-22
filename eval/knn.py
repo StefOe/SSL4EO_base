@@ -6,14 +6,10 @@ from lightly.utils.benchmarking import KNNClassifier, MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.loggers import WandbLogger
-from torch.utils.data import DataLoader
 
 from data.mmearth_dataset import (
-    create_MMEearth_args,
-    MMEarthDataset,
     get_mmearth_dataloaders,
 )
-from methods.transforms import to_tensor
 
 
 def knn_eval(

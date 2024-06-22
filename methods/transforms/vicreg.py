@@ -3,15 +3,12 @@ from typing import Optional, Tuple, Union, Callable
 
 import torchvision.transforms as T
 from PIL.Image import Image
-from ffcv import transforms as FT
 from ffcv.pipeline.allocation_query import AllocationQuery
 from ffcv.pipeline.operation import Operation
 from ffcv.pipeline.state import State
 from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
-
-from methods.transforms.base import RandomVerticalFlip
 
 
 class VICRegTransform(MultiViewTransform, Operation):

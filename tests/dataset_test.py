@@ -1,10 +1,10 @@
 import numpy as np
 import pytest
 
-from data import constants
-from data.constants import MMEARTH_DIR
 from data import GeobenchDataset
 from data import MMEarthDataset, create_MMEearth_args
+from data import constants
+from data.constants import MMEARTH_DIR
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
@@ -14,7 +14,10 @@ from data import MMEarthDataset, create_MMEearth_args
 )
 @pytest.mark.parametrize(
     "target_modalities",
-    [{"biome": constants.MODALITIES_FULL["biome"]},{"eco_region": constants.MODALITIES_FULL["eco_region"]}],
+    [
+        {"biome": constants.MODALITIES_FULL["biome"]},
+        {"eco_region": constants.MODALITIES_FULL["eco_region"]},
+    ],
 )
 def test_mmearth_dataset(split, modalities, target_modalities):
     args = create_MMEearth_args(MMEARTH_DIR, modalities, target_modalities)
@@ -39,9 +42,9 @@ def test_mmearth_dataset(split, modalities, target_modalities):
         assert isinstance(
             data["sentinel2"], np.ndarray
         ), "'sentinel2' data should be a Tensor"
-        assert data["sentinel2"].shape[0] == s2_channel, (
-            f"'sentinel2' data should have {s2_channel} channels"
-        )
+        assert (
+            data["sentinel2"].shape[0] == s2_channel
+        ), f"'sentinel2' data should have {s2_channel} channels"
 
     # no tests for val/test currently
 

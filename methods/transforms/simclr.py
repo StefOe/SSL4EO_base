@@ -10,8 +10,6 @@ from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
-from methods.transforms.base import to_tensor
-
 
 class SimCLRTransform(MultiViewTransform, Operation):
     """Implements the transformations for SimCLR [0, 1].
