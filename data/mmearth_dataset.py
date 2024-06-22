@@ -228,6 +228,7 @@ def get_mmearth_dataloaders(
     batch_size_per_device: int,
     splits: list[str] = None,
     no_ffcv: bool = False,
+    indices: list[list[int]] = None,
 ) -> list[Union[ffcv.Loader, DataLoader]]:
     """
     Creates and returns data loaders for the MMEarth dataset. If the processed beton file does not exist, it processes the data
@@ -253,6 +254,8 @@ def get_mmearth_dataloaders(
         The dataset splits to be used. Default is ["train", "val"].
     no_ffcv: bool, optional
         Disables the creation of beton file and return torch Dataloader instead. Default is False.
+    indices: list[list[int]], optional
+        Select indices to use for each split (starting at 0). Default is None, meaning all samples are used. Only with FFCV enabled.
 
     Returns:
     -------
@@ -294,6 +297,14 @@ def get_mmearth_dataloaders(
     - The `ffcv.Loader` is used to create the data loaders with appropriate pipelines for training and validation.
 
     """
+    assert not no_ffcv or (
+        no_ffcv and indices is None
+    ), "Providing indices is not supported in no_ffcv mode."
+    assert indices is None or (len(indices) == len(splits)), (
+        "If indices are given, the number of splits and number of list of indices"
+        "must align (len(indices) != len(splits) = ({len(indices)} != {len(splits))}"
+    )
+
     if processed_dir is None:
         processed_dir = data_dir
     else:
@@ -303,19 +314,20 @@ def get_mmearth_dataloaders(
         splits = ["train", "val"]
     # lookup input modality
     # only one input modality at a time supported TODO
-    input_name = list(input_modality.keys())[0]
+    input_name = list(input_modality.keys())[0].replace("_", "-")
 
     # reverse lookup target modality
     if target_modality is None:
         target_name = ""
     else:
         # only one task supported TODO
-        target_name = list(target_modality.keys())[0]
+        target_name = list(target_modality.keys())[0].replace("_", "-")
 
     dataloaders = []
-    for split in splits:
+    for i, split in enumerate(splits):
         is_train = split == "train"
-        beton_file = processed_dir / f"{split}_{input_name}_{target_name}.beton"
+        subset = "" if indices is None else "_subset"
+        beton_file = processed_dir / f"{split}_{input_name}_{target_name}{subset}.beton"
 
         if not beton_file.exists() or no_ffcv:
             if not no_ffcv:
@@ -357,11 +369,13 @@ def get_mmearth_dataloaders(
                     ori_input_size,
                     ori_input_size,
                 )
+                idx = None if indices is None else indices[i]
                 convert_mmearth_to_beton(
                     dataset,
                     beton_file,
                     num_workers=num_workers,
                     input_shape=input_shape,
+                    indices=idx,
                 )
 
         # Data decoding and augmentation
@@ -376,15 +390,18 @@ def get_mmearth_dataloaders(
             }
 
         if target_modality is not None:
-            pipelines.update({
-                "label": [
-                    IntDecoder(),
-                    ToTensor(),
-                    Squeeze([1]),
-                ],  # this will only work for classification TODO
-            })
+            pipelines.update(
+                {
+                    "label": [
+                        IntDecoder(),
+                        ToTensor(),
+                        Squeeze([1]),
+                    ],  # this will only work for classification TODO
+                }
+            )
+
         # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
-        train_dataloader = ffcv.Loader(
+        dataloader = ffcv.Loader(
             beton_file,
             batch_size=batch_size_per_device,
             num_workers=num_workers,
@@ -393,7 +410,7 @@ def get_mmearth_dataloaders(
             drop_last=is_train,
         )
 
-        dataloaders.append(train_dataloader)
+        dataloaders.append(dataloader)
 
     return dataloaders
 
