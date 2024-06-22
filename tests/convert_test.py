@@ -3,7 +3,7 @@ from pathlib import Path
 
 from data import constants
 from data.constants import MMEARTH_DIR
-from data.convert2ffcv import convert_mmearth
+from data.geobench_dataset import convert_mmearth_to_beton
 from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args
 
 
@@ -23,7 +23,7 @@ def test_mmearth_dataset():
     write_path = test_out / "mmearth.beton"
 
     try:
-        convert_mmearth(dataset, write_path, indices=[i for i in range(10)])
+        convert_mmearth_to_beton(dataset, write_path, indices=[i for i in range(10)])
     finally:
         # cleanup
         shutil.rmtree(test_out, ignore_errors=True)

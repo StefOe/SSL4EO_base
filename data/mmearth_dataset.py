@@ -18,7 +18,7 @@ from torchvision.transforms import Compose
 
 from methods.transforms import to_tensor
 from .constants import NO_DATA_VAL, MODALITIES_FULL, MODALITY_TASK, ori_input_size, IN_MODALITIES
-from .convert2ffcv import convert_mmearth
+from .geobench_dataset import convert_mmearth_to_beton
 
 
 ##################### FUNCTIONS FOR PRETRAINING DATASETS #####################
@@ -351,7 +351,7 @@ def get_mmearth_dataloaders(
                     ori_input_size,
                     ori_input_size,
                 )
-                convert_mmearth(
+                convert_mmearth_to_beton(
                     dataset,
                     beton_file,
                     num_workers=num_workers,
