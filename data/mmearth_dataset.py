@@ -3,19 +3,29 @@ from argparse import Namespace
 from collections import OrderedDict
 from copy import copy
 from pathlib import Path
+from typing import Union
 
+import ffcv
 import h5py
 import numpy as np
-import torch
-from torch.utils.data import Dataset
+from ffcv.fields.basics import IntDecoder
+from ffcv.fields.ndarray import NDArrayDecoder
+from ffcv.loader import OrderOption
+from ffcv.transforms import ToTensor, Squeeze
+from lightly.utils.dist import print_rank_zero
+from torch.utils.data import Dataset, DataLoader
+from torchvision.transforms import Compose
 
-from data.constants import NO_DATA_VAL, MODALITIES_FULL
+from data.constants import NO_DATA_VAL, MODALITIES_FULL, MODALITY_TASK
+from data.convert2ffcv import convert_mmearth
+from main import IN_MODALITIES, ori_input_size
+from methods.transforms import to_tensor
 
 
 ##################### FUNCTIONS FOR PRETRAINING DATASETS #####################
 
 
-class MultimodalDataset(Dataset):
+class MMEarthDataset(Dataset):
     def __init__(self, args, split: str, transform, return_tuple: bool = False):
         # return_dict transform
         self.transform = transform
@@ -158,12 +168,8 @@ class MultimodalDataset(Dataset):
                 if modality != "dynamic_world"
                 else data
             )
-            if modality in [
-                "biome",
-                "eco_region",
-                "dynamic_world",
-                "esa_worldcover",
-            ]:
+
+            if MODALITY_TASK[modality] in ["classification", "segmentation"]:
                 data = data.astype(np.dtype("int64"))
             else:
                 data = data.astype(np.dtype("float32"))
@@ -189,7 +195,10 @@ def get_single_glob_file(data_root: Path, pattern) -> Path:
     assert len(file) == 1, f"too many {pattern} files at {data_root}"
     return file[0]
 
-def create_MMEearth_args(data_root: Path, input_modality:dict, target_modality:dict) -> Namespace:
+
+def create_MMEearth_args(
+    data_root: Path, input_modality: dict, target_modality: dict
+) -> Namespace:
     args = Namespace()
 
     args.data_path = get_single_glob_file(data_root, "data_*.h5")
@@ -207,3 +216,172 @@ def create_MMEearth_args(data_root: Path, input_modality:dict, target_modality:d
     args.modalities = modalities
     args.modalities_full = MODALITIES_FULL
     return args
+
+
+def get_mmearth_dataloaders(
+    train_transform,
+    data_dir: Path,
+    processed_dir: Path,
+    input_modality: dict,
+    target_modality: dict,
+    num_workers: int,
+    batch_size_per_device: int,
+    splits: list[str] = None,
+    no_ffcv: bool = False,
+) -> list[Union[ffcv.Loader, DataLoader]]:
+    """
+    Creates and returns data loaders for the MMEarth dataset. If the processed beton file does not exist, it processes the data
+    and creates the beton file, then returns FFCV data loaders.
+
+    Parameters:
+    ----------
+    train_transform : callable
+        Transformations to apply to the training data.
+    data_dir : Path
+        The directory where the raw dataset is stored.
+    processed_dir : Path
+        The directory where the processed beton files will be saved.
+    input_modality : dict
+        A dictionary specifying the input modality configurations.
+    target_modality : dict
+        A dictionary specifying the target modality configurations.
+    num_workers : int
+        The number of worker threads to use for data loading.
+    batch_size_per_device : int
+        The batch size for each device during training.
+    splits : list[str], optional
+        The dataset splits to be used. Default is ["train", "val"].
+    no_ffcv: bool, optional
+        Disables the creation of beton file and return torch Dataloader instead. Default is False.
+
+    Returns:
+    -------
+    list[Union[ffcv.Loader, torch.utils.data.DataLoader]]
+        A list containing data loaders. Each loader can be either `ffcv.Loader` (for beton files) or `torch.data.DataLoader` (for standard PyTorch datasets).
+
+
+    Example Usage:
+    --------------
+    ```python
+    from pathlib import Path
+
+    train_transform = ...  # Define your training transformations
+    data_dir = Path("/path/to/raw/data")
+    processed_dir = Path("/path/to/processed/data")
+    input_modality = {...}  # Define your input modality configurations
+    target_modality = {...}  # Define your target modality configurations
+    num_workers = 4
+    batch_size_per_device = 32
+
+    dataloaders = get_mmearth_dataloaders(
+        train_transform,
+        data_dir,
+        processed_dir,
+        input_modality,
+        target_modality,
+        num_workers,
+        batch_size_per_device,
+        splits=["train", "val"]
+    )
+    ```
+
+    Notes:
+    -----
+    - The function checks if the processed beton file exists for each split. If it doesn't exist, it processes the data
+      and creates the beton file.
+    - The input and target modalities are reverse looked up using `IN_MODALITIES` and `MODALITIES_FULL` respectively.
+    - The `convert_mmearth` function is used to convert the dataset into beton format.
+    - The `ffcv.Loader` is used to create the data loaders with appropriate pipelines for training and validation.
+
+    """
+    if splits is None:
+        splits = ["train", "val"]
+    # reverse lookup input modality
+    ivd = {v: k for k, v in IN_MODALITIES.items()}
+    input_name = ivd[input_modality]
+
+    # reverse lookup target modality
+    if target_modality is None:
+        target_name = None
+    else:
+        ivd = {v: k for k, v in MODALITIES_FULL.items()}
+        target_name = ivd[target_modality].replace("_", "-")
+
+    dataloaders = []
+    for split in splits:
+        is_train = split == "train"
+        beton_file = processed_dir / f"{split}_{input_name}_{target_name}.beton"
+
+        if not beton_file.exists() or no_ffcv:
+            if not no_ffcv:
+                print_rank_zero(
+                    f"Processed file {beton_file} does not exist, trying to create it now."
+                )
+                transform = None
+            else:
+                transform = (
+                    Compose([to_tensor, train_transform]) if is_train else to_tensor
+                )
+            args = create_MMEearth_args(data_dir, input_modality, target_modality)
+            dataset = MMEarthDataset(
+                args, split=split, transform=transform, return_tuple=True
+            )
+
+            if len(dataset) == 0:
+                assert not is_train, "training dataset has no samples"
+                print_rank_zero(
+                    f"No samples in evaluation split '{split}', skipping it"
+                )
+                dataloaders.append(None)
+                continue
+
+            if no_ffcv:
+                dataloader = DataLoader(
+                    dataset,
+                    batch_size=batch_size_per_device,
+                    shuffle=is_train,
+                    num_workers=num_workers,
+                    drop_last=is_train,
+                    persistent_workers=num_workers > 0,
+                )
+                dataloaders.append(dataloader)
+                continue
+            else:
+                input_shape = (
+                    sum([len(input_modality[k]) for k in input_modality]),
+                    ori_input_size,
+                    ori_input_size,
+                )
+                convert_mmearth(
+                    dataset,
+                    beton_file,
+                    num_workers=num_workers,
+                    input_shape=input_shape,
+                )
+
+        # Data decoding and augmentation
+        # Pipeline for each data field
+        if is_train:
+            pipelines = {
+                "sentinel2": [NDArrayDecoder(), ToTensor(), train_transform],
+                "label": [IntDecoder(), ToTensor(), Squeeze([1])],
+            }
+        else:
+            pipelines = {
+                "sentinel2": [NDArrayDecoder(), ToTensor()],
+                "label": [IntDecoder(), ToTensor(), Squeeze([1])],
+            }
+
+        # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
+        train_dataloader = ffcv.Loader(
+            beton_file,
+            batch_size=batch_size_per_device,
+            num_workers=num_workers,
+            order=OrderOption.QUASI_RANDOM if is_train else OrderOption.SEQUENTIAL,
+            pipelines=pipelines,
+            drop_last=is_train,
+        )
+
+        dataloaders.append(train_dataloader)
+
+    return dataloaders

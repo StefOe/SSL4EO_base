@@ -10,12 +10,15 @@ from torch.nn import Module
 from torch.utils.data import DataLoader
 from torchvision import transforms as T
 
-from data.geobench_dataset import GeobenchDataset
+from data import GeobenchDataset
 from eval.finetune import FinetuneEvalClassifier
-from eval.geobench import LinearMultiLabelClassifier
+from eval.geobench.helper_modules import (
+    LinearMultiLabelClassifier,
+    FinetuneMultiLabelClassifier,
+)
 
 
-def geobench_clf(
+def geobench_clf_eval(
     model: Module,
     dataset_name: str,
     partition: str,
@@ -134,7 +137,8 @@ def geobench_clf(
         val_dataloaders=val_dataloader,
     )
     wandb.finish()
-    if debug: return
+    if debug:
+        return
     if val_dataloader is None:
         for metric in ["train_top1", "train_top5"]:
             print_rank_zero(
@@ -167,7 +171,9 @@ def get_geobench_classifier(
         )
     else:
         # if dataset is multi-label, we need a different classifier class
-        clf_class = FinetuneEvalClassifier if is_multi_label else FinetuneEvalClassifier
+        clf_class = (
+            FinetuneMultiLabelClassifier if is_multi_label else FinetuneEvalClassifier
+        )
 
         classifier = clf_class(
             model=model,

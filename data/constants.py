@@ -164,6 +164,25 @@ MODALITIES_FULL = {
     "eco_region": ["eco_region"],
 }
 
+MODALITY_TASK = {
+    # map regression
+    "sentinel2": "regression_map",
+    "sentinel1": "regression_map",
+    "aster": "regression_map",
+    "canopy_height_eth": "regression_map",
+    # pixel regression
+    "lat": "regression",
+    "lon": "regression",
+    "month": "regression",
+    "era5": "regression",
+    # semantic segmentation
+    "esa_worldcover": "segmentation",
+    "dynamic_world": "segmentation",
+    # pixel classification
+    "biome": "classification",
+    "eco_region": "classification",
+}
+
 CLASSIFICATION_CLASSES = {
     "biome": 14,
     "eco_region": 846,

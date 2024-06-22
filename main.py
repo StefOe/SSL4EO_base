@@ -5,12 +5,7 @@ from itertools import product
 from pathlib import Path
 from typing import Sequence, Union
 
-import ffcv
 import torch
-from ffcv.fields.basics import IntDecoder
-from ffcv.fields.ndarray import NDArrayDecoder
-from ffcv.loader import OrderOption
-from ffcv.transforms import ToTensor, ToTorchImage, Squeeze
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import LightningModule, Trainer
@@ -19,7 +14,6 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
 )
 from pytorch_lightning.loggers import WandbLogger
-from torch.utils.data import DataLoader
 
 import wandb
 from data.constants import (
@@ -29,11 +23,8 @@ from data.constants import (
     CLASSIFICATION_CLASSES,
     MMEARTH_DIR,
 )
-from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
-from eval.finetune import finetune_eval
-from eval.geobench.geobench_clf import geobench_clf
-from eval.knn import knn_eval
-from eval.linear import linear_eval
+from data import get_mmearth_dataloaders
+from eval import finetune_eval, geobench_clf_eval, knn_eval, linear_eval
 from methods import modules
 from methods import transforms
 
@@ -44,8 +35,15 @@ parser.add_argument(
     "--data-dir",
     type=Path,
     default=None,
-    help="Path to the MMEarth dataset folder (default: None). "
+    help="Path to the raw MMEarth dataset folder (default: None). "
     "If not given the environment variable MMEARTH_DIR will be used",
+)
+parser.add_argument(
+    "--processed-dir",
+    type=Path,
+    default=None,
+    help="Path to the processed MMEarth dataset folder (default: None). "
+    "If not given the data_dir will be used",
 )
 parser.add_argument(
     "--log-dir",
@@ -157,6 +155,7 @@ parser.add_argument(
     help="Amount of GeoBench data to train on (default: 'default').",
 )
 
+ori_input_size = 128
 input_size = 112
 METHODS = {
     "barlowtwins": {
@@ -195,6 +194,7 @@ IN_MODALITIES = {
 
 def main(
     data_dir: Path,
+    processed_dir: Path,
     log_dir: Path,
     batch_size_per_device: int,
     epochs: int,
@@ -283,6 +283,7 @@ def main(
                 input_modality=input_modality,
                 target_modality=target_modality,
                 data_dir=data_dir,
+                processed_dir=processed_dir,
                 log_dir=method_dir,
                 batch_size_per_device=batch_size_per_device,
                 epochs=epochs,
@@ -302,7 +303,7 @@ def main(
                 geobench_datasets, geobench_partitions
             ):
                 if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet"]:
-                    geobench_clf(
+                    geobench_clf_eval(
                         model=model,
                         method="linear",
                         dataset_name=dataset_name,
@@ -387,6 +388,7 @@ def pretrain(
     target_modality: dict,
     log_dir: Path,
     data_dir: Path,
+    processed_dir: Path,
     batch_size_per_device: int,
     epochs: int,
     num_workers: int,
@@ -400,59 +402,15 @@ def pretrain(
 
     # Setup training data.
     train_transform = METHODS[method]["transform"]
-    if data_dir.suffix == ".beton":
-        # Data decoding and augmentation
-        image_pipeline = [NDArrayDecoder(), ToTensor(), train_transform]
-        label_pipeline = [IntDecoder(), ToTensor(), Squeeze([1])]
-
-        # Pipeline for each data field
-        train_pipelines = {"sentinel2": image_pipeline, "label": label_pipeline}
-
-        # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
-        train_dataloader = ffcv.Loader(
-            data_dir,
-            batch_size=batch_size_per_device,
-            num_workers=num_workers,
-            order=OrderOption.QUASI_RANDOM,
-            pipelines=train_pipelines,
-            drop_last=True,
-        )
-
-        val_pipelines = {"sentinel2": [NDArrayDecoder(), ToTensor()], "label": [IntDecoder(), ToTensor(), Squeeze([1])]}
-        val_dataloader = None
-    else:
-        args = create_MMEearth_args(data_dir, input_modality, target_modality)
-
-        train_dataset = MultimodalDataset(
-            args, split="train", transform=train_transform, return_tuple=True
-        )
-        train_dataloader = DataLoader(
-            train_dataset,
-            batch_size=batch_size_per_device,
-            shuffle=True,
-            num_workers=num_workers,
-            drop_last=True,
-            persistent_workers=num_workers > 0,
-            pin_memory=not accelerator == "cpu",
-        )
-
-        # Setup validation data.
-        val_dataset = MultimodalDataset(
-            args, split="val", transform=None, return_tuple=True
-        )
-        val_dataloader = None
-        if len(val_dataset) > 0:
-            val_dataloader = DataLoader(
-                val_dataset,
-                batch_size=batch_size_per_device,
-                shuffle=False,
-                num_workers=num_workers,
-                drop_last=False,
-                persistent_workers=num_workers > 0,
-                pin_memory=not accelerator == "cpu",
-            )
-        else:
-            print_rank_zero("No validation data found, skipping it...")
+    train_dataloader, val_dataloader = get_mmearth_dataloaders(
+        train_transform,
+        data_dir,
+        processed_dir,
+        input_modality,
+        target_modality,
+        num_workers,
+        batch_size_per_device,
+    )
 
     # Train model.
     metric_callback = MetricCallback()

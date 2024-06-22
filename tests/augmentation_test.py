@@ -2,7 +2,7 @@ import pytest
 
 from data import constants
 from data.constants import MMEARTH_DIR
-from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
+from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args
 from methods import transforms
 from torchvision import transforms as T
 
@@ -34,7 +34,7 @@ def test_augmentations(split, modalities, transform):
 
     args.modalities = modalities
     transform = T.Compose([to_tensor, transform])
-    dataset = MultimodalDataset(args, split=split, transform=transform)
+    dataset = MMEarthDataset(args, split=split, transform=transform)
 
     if split == "train":
         num_samples = 10

@@ -14,7 +14,8 @@ from torchvision import transforms as T
 
 from data.mmearth_dataset import (
     create_MMEearth_args,
-    MultimodalDataset,
+    MMEarthDataset,
+    get_mmearth_dataloaders,
 )
 from methods.transforms import to_tensor
 
@@ -46,6 +47,7 @@ def finetune_eval(
     input_modality: dict,
     target_modality: [dict],
     data_dir: Path,
+    processed_dir: Path,
     log_dir: Path,
     batch_size_per_device: int,
     num_workers: int,
@@ -53,7 +55,7 @@ def finetune_eval(
     devices: int,
     precision: str,
     num_classes: int,
-    debug: bool = False
+    debug: bool = False,
 ) -> None:
     """Runs fine-tune evaluation on the given model.
 
@@ -77,39 +79,21 @@ def finetune_eval(
     print_rank_zero("Running fine-tune evaluation...")
 
     # Setup training data.
-    args = create_MMEearth_args(data_dir, input_modality, target_modality)
-
     train_transform = T.Compose(
         [
-            to_tensor,
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),
         ]
     )
-    train_dataset = MultimodalDataset(args, split="train", transform=train_transform, return_tuple=True)
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=batch_size_per_device,
-        shuffle=True,
-        num_workers=num_workers,
-        drop_last=True,
-        persistent_workers=num_workers > 0,
+    train_dataloader, val_dataloader = get_mmearth_dataloaders(
+        train_transform,
+        data_dir,
+        processed_dir,
+        input_modality,
+        target_modality,
+        num_workers,
+        batch_size_per_device,
     )
-
-    # Setup validation data.
-    val_dataset = MultimodalDataset(args, split="val", transform=to_tensor, return_tuple=True)
-    val_dataloader = None
-    if len(val_dataset) > 0:
-        val_dataloader = DataLoader(
-            val_dataset,
-            batch_size=batch_size_per_device,
-            shuffle=False,
-            num_workers=num_workers,
-            drop_last=False,
-            persistent_workers=num_workers > 0,
-        )
-    else:
-        print_rank_zero("No validation data found, skipping it...")
 
     # Train linear classifier.
     metric_callback = MetricCallback()
@@ -128,7 +112,7 @@ def finetune_eval(
             project="ssl4eo",
             # log model config
             config=model.hparams,
-            offline=debug
+            offline=debug,
         ),
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
@@ -149,7 +133,8 @@ def finetune_eval(
     )
 
     wandb.finish()
-    if debug: return
+    if debug:
+        return
     if val_dataloader is None:
         for metric in ["train_top1", "train_top5"]:
             print_rank_zero(

@@ -4,7 +4,7 @@ import pytest
 from data import constants
 from data.constants import MMEARTH_DIR
 from data.geobench_dataset import GeobenchDataset
-from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
+from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
@@ -19,7 +19,7 @@ from data.mmearth_dataset import MultimodalDataset, create_MMEearth_args
 def test_mmearth_dataset(split, modalities, target_modalities):
     args = create_MMEearth_args(MMEARTH_DIR, modalities, target_modalities)
 
-    dataset = MultimodalDataset(args, split=split, transform=None)
+    dataset = MMEarthDataset(args, split=split, transform=None)
 
     if split == "train":
         assert len(dataset) > 0, "Dataset should not be empty"
