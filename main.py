@@ -392,6 +392,9 @@ def pretrain(
 
     # Train model.
     metric_callback = MetricCallback()
+    wandb_config = model.hparams.copy()
+    wandb_config["log_dir"] = str(log_dir)
+    wandb_config["ckpt_path"] = ckpt_path
     trainer = Trainer(
         max_epochs=epochs,
         accelerator=accelerator,
