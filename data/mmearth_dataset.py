@@ -19,7 +19,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import Compose
 
 from methods.transforms import to_tensor
-from .constants import NO_DATA_VAL, MODALITIES_FULL, MODALITY_TASK, ori_input_size, IN_MODALITIES
+from .constants import NO_DATA_VAL, MODALITIES_FULL, MODALITY_TASK, ori_input_size
 
 
 ##################### FUNCTIONS FOR PRETRAINING DATASETS #####################
@@ -48,6 +48,7 @@ class MMEarthDataset(Dataset):
         # mean, std, min and max of each band
         self.norm_stats = args.band_stats
 
+        self.no_target = len(args.modalities) == 1
         self.return_tuple = return_tuple
 
     def apply_transform(self, return_dict: dict):
@@ -183,6 +184,10 @@ class MMEarthDataset(Dataset):
         # apply transforms on normalized data
         if self.transform is not None:
             return_dict = self.apply_transform(return_dict)
+
+        # create dummy entry to fulfil the fantasy of always getting back a tuple of form (input, label)
+        if self.no_target:
+            return_dict["dummy"] = None
 
         if self.return_tuple:
             return tuple(return_dict.values())
@@ -369,12 +374,20 @@ def get_mmearth_dataloaders(
         if is_train:
             pipelines = {
                 "sentinel2": [NDArrayDecoder(), ToTensor(), train_transform],
-                "label": [IntDecoder(), ToTensor(), Squeeze([1])], # this will only work for classification TODO
+                "label": [
+                    IntDecoder(),
+                    ToTensor(),
+                    Squeeze([1]),
+                ],  # this will only work for classification TODO
             }
         else:
             pipelines = {
                 "sentinel2": [NDArrayDecoder(), ToTensor()],
-                "label": [IntDecoder(), ToTensor(), Squeeze([1])], # this will only work for classification TODO
+                "label": [
+                    IntDecoder(),
+                    ToTensor(),
+                    Squeeze([1]),
+                ],  # this will only work for classification TODO
             }
 
         # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
