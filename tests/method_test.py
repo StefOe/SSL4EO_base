@@ -36,19 +36,19 @@ def args():
 
     return args
 
-# @pytest.mark.parametrize("methods", [k for k in METHODS])
-# @pytest.mark.parametrize("geobench_datasets", [["m-eurosat"], ["m-so2sat"], ["m-bigearthnet"]])
-# def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str]):
-#     args.log_dir.mkdir(exist_ok=True)
-#     args.methods = [methods]
-#     args.target = None
-#     args.geobench_datasets = geobench_datasets
-#
-#     try:
-#         main(**vars(args), debug=True)
-#     finally:
-#         # cleanup
-#         shutil.rmtree(args.log_dir, ignore_errors=True)
+@pytest.mark.parametrize("methods", [k for k in METHODS])
+@pytest.mark.parametrize("geobench_datasets", [["m-eurosat"], ["m-so2sat"], ["m-bigearthnet"]])
+def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str]):
+    args.log_dir.mkdir(exist_ok=True)
+    args.methods = [methods]
+    args.target = None
+    args.geobench_datasets = geobench_datasets
+
+    try:
+        main(**vars(args), debug=True)
+    finally:
+        # cleanup
+        shutil.rmtree(args.log_dir, ignore_errors=True)
 
 @pytest.mark.parametrize("methods", [k for k in METHODS])
 @pytest.mark.parametrize("target", ["biome", "eco_region", None])
