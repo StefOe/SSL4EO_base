@@ -97,7 +97,7 @@ def geobench_clf_eval(
     )
     epochs = 90 if method == "linear" else 30
     trainer = Trainer(
-        max_epochs=1 if debug else epochs,
+        max_epochs=epochs,
         accelerator=accelerator,
         devices=devices,
         callbacks=[
@@ -160,10 +160,12 @@ def geobench_clf_eval(
         num_workers=num_workers,
         drop_last=False,
     )
+
+    best_model_path = model_checkpoint.best_model_path if model_checkpoint.best_model_path != "" else None
     trainer.test(
         model=classifier,
         dataloaders=test_dataloader,
-        ckpt_path=model_checkpoint.best_model_path,
+        ckpt_path=best_model_path,
     )
 
     wandb.finish()
