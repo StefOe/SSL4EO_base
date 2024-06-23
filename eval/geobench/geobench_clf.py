@@ -157,7 +157,7 @@ def geobench_clf_eval(
         num_workers=num_workers,
         drop_last=False,
     )
-    trainer.predict(
+    trainer.validate(
         model=classifier,
         dataloaders=test_dataloader,
         ckpt_path=best_model_path,
