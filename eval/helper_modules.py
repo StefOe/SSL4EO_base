@@ -98,6 +98,34 @@ class LinearMultiLabelClassifier(LinearClassifier):
 
         return loss, metrics
 
+    def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
+        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
+        batch_size = len(batch[1])
+        log_dict = {f"train_{metric}": value for metric, value in metrics.items()}
+        self.log(
+            "train_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size
+        )
+        self.log_dict(log_dict, sync_dist=True, batch_size=batch_size)
+        return loss
+
+    def validation_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
+        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
+        batch_size = len(batch[1])
+        log_dict = {f"val_{metric}": value for metric, value in metrics.items()}
+        self.log("val_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        return loss
+
+
+    def test_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
+        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
+        batch_size = len(batch[1])
+        log_dict = {f"test_{metric}": value for metric, value in metrics.items()}
+        self.log("test_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        return loss
+
+
 class FinetuneEvalClassifier(LinearClassifier):
 
     def configure_optimizers(self):
