@@ -118,8 +118,11 @@ def geobench_clf_eval(
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
+
+        # this is just for debug
         fast_dev_run=debug and debug != "long",
-        max_steps=-1 if debug != "long" else 1
+        max_steps=-1 if debug != "long" else 1,
+        limit_test_batches=1 if debug else None
     )
 
     classifier = get_geobench_classifier(
@@ -135,15 +138,11 @@ def geobench_clf_eval(
         train_dataloaders=train_dataloader,
         val_dataloaders=val_dataloader,
     )
-    wandb.finish()
 
     if not debug:
         print_rank_zero(
             f"max {dataset_name} {method} val_top1: {max(metric_callback.val_metrics['val_top1'])}"
         )
-        best_model_path = model_checkpoint.best_model_path
-    else:
-        best_model_path = None
 
     # get test results for best val model
     test_dataset = GeobenchDataset(
@@ -159,11 +158,13 @@ def geobench_clf_eval(
         num_workers=num_workers,
         drop_last=False,
     )
-    trainer.validate(
+    trainer.test(
         model=classifier,
         dataloaders=test_dataloader,
-        ckpt_path=best_model_path,
+        ckpt_path="best",
     )
+
+    wandb.finish()
 
 
 def get_geobench_classifier(
