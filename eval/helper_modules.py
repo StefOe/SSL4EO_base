@@ -1,12 +1,23 @@
 from modulefinder import Module
 from typing import Tuple, Dict
 
-from lightly.utils.benchmarking import LinearClassifier
+from lightly.utils.benchmarking import LinearClassifier as LightningLinearClassifier
 from lightly.utils.scheduler import CosineWarmupScheduler
 from torch import Tensor
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import SGD
 from torchmetrics.functional import accuracy, f1_score, average_precision
+
+
+class LinearClassifier(LightningLinearClassifier):
+    # adding missing test_step function
+    def test_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
+        loss, topk = self.shared_step(batch=batch, batch_idx=batch_idx)
+        batch_size = len(batch[1])
+        log_dict = {f"test_top{k}": acc for k, acc in topk.items()}
+        self.log("test_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        return loss
 
 
 class LinearMultiLabelClassifier(LinearClassifier):
@@ -87,25 +98,26 @@ class LinearMultiLabelClassifier(LinearClassifier):
 
         return loss, metrics
 
-    def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
-        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
-        batch_size = len(batch[1])
-        log_dict = {f"train_{metric}": value for metric, value in metrics.items()}
-        self.log(
-            "train_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size
+class FinetuneEvalClassifier(LinearClassifier):
+
+    def configure_optimizers(self):
+        parameters = list(self.classification_head.parameters())
+        parameters += self.model.parameters()
+        optimizer = SGD(
+            parameters,
+            lr=0.05 * self.batch_size_per_device * self.trainer.world_size / 256,
+            momentum=0.9,
+            weight_decay=0.0,
         )
-        self.log_dict(log_dict, sync_dist=True, batch_size=batch_size)
-        return loss
-
-    def validation_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
-        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
-        batch_size = len(batch[1])
-        log_dict = {f"val_{metric}": value for metric, value in metrics.items()}
-        self.log("val_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size)
-        self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
-        return loss
-
-
+        scheduler = {
+            "scheduler": CosineWarmupScheduler(
+                optimizer=optimizer,
+                warmup_epochs=0,
+                max_epochs=self.trainer.estimated_stepping_batches,
+            ),
+            "interval": "step",
+        }
+        return [optimizer], [scheduler]
 class FinetuneMultiLabelClassifier(LinearMultiLabelClassifier):
     """Finetune classifier for benchmarking binary multilabel classification."""
 
@@ -127,3 +139,6 @@ class FinetuneMultiLabelClassifier(LinearMultiLabelClassifier):
             "interval": "step",
         }
         return [optimizer], [scheduler]
+
+
+

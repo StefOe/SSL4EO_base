@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import wandb
-from lightly.utils.benchmarking import MetricCallback, LinearClassifier
+from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -11,10 +11,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms as T
 
 from data import GeobenchDataset
-from eval.finetune import FinetuneEvalClassifier
-from eval.geobench.helper_modules import (
-    LinearMultiLabelClassifier,
-    FinetuneMultiLabelClassifier,
+from eval.helper_modules import (
+    LinearMultiLabelClassifier, FinetuneMultiLabelClassifier, LinearClassifier, FinetuneEvalClassifier,
 )
 
 

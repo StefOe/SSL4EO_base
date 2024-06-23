@@ -1,41 +1,18 @@
 from pathlib import Path
 
 import wandb
-from lightly.utils.benchmarking import LinearClassifier, MetricCallback
+from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
-from lightly.utils.scheduler import CosineWarmupScheduler
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
 from torch.nn import Module
-from torch.optim import SGD
 from torchvision import transforms as T
 
 from data.mmearth_dataset import (
     get_mmearth_dataloaders,
 )
-
-
-class FinetuneEvalClassifier(LinearClassifier):
-
-    def configure_optimizers(self):
-        parameters = list(self.classification_head.parameters())
-        parameters += self.model.parameters()
-        optimizer = SGD(
-            parameters,
-            lr=0.05 * self.batch_size_per_device * self.trainer.world_size / 256,
-            momentum=0.9,
-            weight_decay=0.0,
-        )
-        scheduler = {
-            "scheduler": CosineWarmupScheduler(
-                optimizer=optimizer,
-                warmup_epochs=0,
-                max_epochs=self.trainer.estimated_stepping_batches,
-            ),
-            "interval": "step",
-        }
-        return [optimizer], [scheduler]
+from eval.helper_modules import FinetuneEvalClassifier
 
 
 def finetune_eval(
