@@ -6,7 +6,7 @@ from lightly.utils.scheduler import CosineWarmupScheduler
 from torch import Tensor
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import SGD
-from torchmetrics.functional import accuracy, f1_score
+from torchmetrics.functional import accuracy, f1_score, average_precision
 
 
 class LinearMultiLabelClassifier(LinearClassifier):
@@ -67,6 +67,23 @@ class LinearMultiLabelClassifier(LinearClassifier):
         # )
         # metrics.update({f"f1 cls-{i}": value.item() for i, value in enumerate(f1_cls)})
         metrics["f1"] = f1_glob.item()
+
+        mAP_glob = average_precision(
+            predictions,
+            targets,
+            task="multilabel",
+            num_labels=self.num_classes,
+            average="macro",
+        )
+        # mAP_cls = average_precision(
+        #     predictions,
+        #     targets,
+        #     task="multilabel",
+        #     num_labels=self.num_classes,
+        #     average="none",
+        # )
+        # metrics.update({f"mAP cls-{i}": value.item() for i, value in enumerate(mAP_glob)})
+        metrics["mAP"] = mAP_glob.item()
 
         return loss, metrics
 
