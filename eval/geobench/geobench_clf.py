@@ -139,6 +139,9 @@ def geobench_clf_eval(
         print_rank_zero(
             f"max {dataset_name} {method} val_top1: {max(metric_callback.val_metrics['val_top1'])}"
         )
+        best_model_path = model_checkpoint.best_model_path
+    else:
+        best_model_path = None
 
     # get test results for best val model
     test_dataset = GeobenchDataset(
@@ -157,7 +160,7 @@ def geobench_clf_eval(
     trainer.predict(
         model=classifier,
         dataloaders=test_dataloader,
-        ckpt_path=model_checkpoint.best_model_path,
+        ckpt_path=best_model_path,
     )
 
 
