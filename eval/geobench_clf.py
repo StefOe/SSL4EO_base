@@ -137,6 +137,9 @@ def geobench_clf_eval(
         val_dataloaders=val_dataloader,
     )
 
+    # clean memory
+    del train_dataloader, val_dataloader
+
     if not debug:
         print_rank_zero(
             f"max {dataset_name} {method} val_top1: {max(metric_callback.val_metrics['val_top1'])}"
@@ -159,7 +162,7 @@ def geobench_clf_eval(
     trainer.test(
         model=classifier,
         dataloaders=test_dataloader,
-        ckpt_path="best",
+        ckpt_path=model_checkpoint.best_model_path,
     )
 
     wandb.finish()
