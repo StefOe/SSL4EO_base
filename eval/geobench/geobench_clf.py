@@ -3,6 +3,7 @@ from pathlib import Path
 import wandb
 from lightly.utils.benchmarking import MetricCallback, LinearClassifier
 from lightly.utils.dist import print_rank_zero
+from lightning.pytorch.callbacks import ModelCheckpoint
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
@@ -81,22 +82,21 @@ def geobench_clf_eval(
     val_dataset = GeobenchDataset(
         dataset_name=dataset_name,
         split="val",
-        transform=train_transform,
+        transform=None,
         benchmark_name="classification",
     )
-    val_dataloader = None
-    if len(val_dataset) > 0:
-        val_dataloader = DataLoader(
-            val_dataset,
-            batch_size=batch_size_per_device,
-            shuffle=False,
-            num_workers=num_workers,
-            drop_last=False,
-        )
-    else:
-        print_rank_zero("No validation data found, skipping it...")
+    val_dataloader = DataLoader(
+        val_dataset,
+        batch_size=batch_size_per_device,
+        shuffle=False,
+        num_workers=num_workers,
+        drop_last=False,
+    )
     # Train linear classifier.
     metric_callback = MetricCallback()
+    model_checkpoint = ModelCheckpoint(
+        monitor="val_top1", mode="max", auto_insert_metric_name=True
+    )
     epochs = 90 if method == "linear" else 30
     trainer = Trainer(
         max_epochs=epochs,
@@ -104,7 +104,7 @@ def geobench_clf_eval(
         devices=devices,
         callbacks=[
             LearningRateMonitor(),
-            # ModelCheckpoint(ckpt_path, monitor="val_online_cls_top1", filename='{epoch}-{val_online_cls_top1:.2f}),
+            model_checkpoint,
             metric_callback,
         ],
         logger=WandbLogger(
@@ -135,18 +135,27 @@ def geobench_clf_eval(
         val_dataloaders=val_dataloader,
     )
     wandb.finish()
-    if debug:
-        return
-    if val_dataloader is None:
-        for metric in ["train_top1", "train_top5"]:
-            print_rank_zero(
-                f"max {dataset_name} {method} {metric}: {max(metric_callback.train_metrics[metric])}"
-            )
-    else:
-        for metric in ["val_top1", "val_top5"]:
-            print_rank_zero(
-                f"max {dataset_name} {method} {metric}: {max(metric_callback.val_metrics[metric])}"
-            )
+
+    if not debug:
+        print_rank_zero(
+            f"max {dataset_name} {method} val_top1: {max(metric_callback.val_metrics['val_top1'])}"
+        )
+
+    # get test results for best val model
+    test_dataset = GeobenchDataset(
+        dataset_name=dataset_name,
+        split="test",
+        transform=None,
+        benchmark_name="classification",
+    )
+    test_dataloader = DataLoader(
+        test_dataset,
+        batch_size=batch_size_per_device,
+        shuffle=False,
+        num_workers=num_workers,
+        drop_last=False,
+    )
+    trainer.predict(model=classifier, dataloaders=test_dataloader, ckpt_path=model_checkpoint.best_model_path)
 
 
 def get_geobench_classifier(
@@ -159,25 +168,17 @@ def get_geobench_classifier(
     if method == "linear":
         # if dataset is multi-label, we need a different classifier class
         clf_class = LinearMultiLabelClassifier if is_multi_label else LinearClassifier
-
-        classifier = clf_class(
-            model=model,
-            batch_size_per_device=batch_size_per_device,
-            feature_dim=model.last_backbone_channel,
-            num_classes=num_classes,
-            freeze_model=True,
-        )
     else:
         # if dataset is multi-label, we need a different classifier class
         clf_class = (
             FinetuneMultiLabelClassifier if is_multi_label else FinetuneEvalClassifier
         )
 
-        classifier = clf_class(
-            model=model,
-            batch_size_per_device=batch_size_per_device,
-            feature_dim=model.last_backbone_channel,
-            num_classes=num_classes,
-            freeze_model=False,
-        )
+    classifier = clf_class(
+        model=model,
+        batch_size_per_device=batch_size_per_device,
+        feature_dim=model.last_backbone_channel,
+        num_classes=num_classes,
+        freeze_model=method == "linear",
+    )
     return classifier

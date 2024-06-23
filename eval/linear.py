@@ -78,7 +78,7 @@ def linear_eval(
         devices=devices,
         callbacks=[
             LearningRateMonitor(),
-            # ModelCheckpoint(ckpt_path, monitor="val_online_cls_top1", filename='{epoch}-{val_online_cls_top1:.2f}),
+            # ModelCheckpoint(monitor="val_top1", mode="max", auto_insert_metric_name=True),
             metric_callback,
         ],
         logger=WandbLogger(

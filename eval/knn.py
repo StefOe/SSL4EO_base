@@ -77,9 +77,7 @@ def knn_eval(
             config=model.hparams,
             offline=debug,
         ),
-        callbacks=[
-            metric_callback,
-        ],
+        callbacks=[metric_callback],
         # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
         fast_dev_run=debug,

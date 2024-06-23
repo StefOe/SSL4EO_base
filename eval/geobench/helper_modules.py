@@ -48,8 +48,8 @@ class LinearMultiLabelClassifier(LinearClassifier):
         #     num_labels=self.num_classes,
         #     average="none",
         # )
-        # metrics = {f"acc cls-{i}": value.item() for i, value in enumerate(acc_cls)}
-        metrics["acc"] = acc_glob.item()
+        # metrics = {f"top1 cls-{i}": value.item() for i, value in enumerate(acc_cls)}
+        metrics["top1"] = acc_glob.item()
 
         f1_glob = f1_score(
             predictions,
