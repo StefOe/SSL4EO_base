@@ -3,9 +3,8 @@ from pathlib import Path
 import wandb
 from lightly.utils.benchmarking import MetricCallback, LinearClassifier
 from lightly.utils.dist import print_rank_zero
-from lightning.pytorch.callbacks import ModelCheckpoint
 from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from torch.nn import Module
 from torch.utils.data import DataLoader
@@ -155,7 +154,11 @@ def geobench_clf_eval(
         num_workers=num_workers,
         drop_last=False,
     )
-    trainer.predict(model=classifier, dataloaders=test_dataloader, ckpt_path=model_checkpoint.best_model_path)
+    trainer.predict(
+        model=classifier,
+        dataloaders=test_dataloader,
+        ckpt_path=model_checkpoint.best_model_path,
+    )
 
 
 def get_geobench_classifier(
