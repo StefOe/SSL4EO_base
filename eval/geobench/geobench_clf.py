@@ -29,7 +29,7 @@ def geobench_clf_eval(
     accelerator: str,
     devices: int,
     precision: str,
-    debug: bool = False,
+    debug: [bool, str] = False,
 ) -> None:
     """Runs a linear evaluation on the given model.
 
@@ -98,7 +98,7 @@ def geobench_clf_eval(
     )
     epochs = 90 if method == "linear" else 30
     trainer = Trainer(
-        max_epochs=epochs,
+        max_epochs=1 if debug else epochs,
         accelerator=accelerator,
         devices=devices,
         callbacks=[
@@ -117,7 +117,8 @@ def geobench_clf_eval(
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
-        fast_dev_run=debug,
+        fast_dev_run=debug and debug != "long",
+        max_steps=-1 if debug != "long" else 1
     )
 
     classifier = get_geobench_classifier(

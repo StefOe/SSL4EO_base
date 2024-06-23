@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import torch.cuda
 
+from eval import geobench_clf_eval
 from main import main, METHODS
 
 
@@ -39,7 +40,6 @@ def args():
     return args
 
 
-
 @pytest.mark.parametrize("methods", [k for k in METHODS])
 @pytest.mark.parametrize(
     "geobench_datasets", [["m-eurosat"], ["m-so2sat"], ["m-bigearthnet"]]
@@ -53,6 +53,37 @@ def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str])
 
     try:
         main(**vars(args), debug=True)
+    finally:
+        # cleanup
+        shutil.rmtree(args.log_dir, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "geobench_datasets", ["m-eurosat", "m-so2sat", "m-bigearthnet"]
+)
+def test_checkpointing_geobench(args, geobench_dataset: str):
+    args.log_dir.mkdir(exist_ok=True)
+    args.methods = ["vicreg"]
+    args.target = None
+    args.epochs = 0
+
+    try:
+        model = main(**vars(args), debug=True)
+
+        geobench_clf_eval(
+            model=model,
+            method="linear",
+            dataset_name=geobench_dataset,
+            partition="default",
+            log_dir=args.log_dir,
+            batch_size_per_device=args.batch_size_per_device,
+            num_workers=args.num_workers,
+            accelerator=args.accelerator,
+            devices=args.devices,
+            precision=args.precision,
+            debug="long",
+        )
+
     finally:
         # cleanup
         shutil.rmtree(args.log_dir, ignore_errors=True)

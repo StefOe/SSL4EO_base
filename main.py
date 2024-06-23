@@ -219,7 +219,7 @@ def main(
     ckpt_path: Union[Path, None],
     no_ffcv: bool,
     debug: bool = False,
-) -> None:
+) -> LightningModule:
     if data_dir is None:
         data_dir = MMEARTH_DIR
 
@@ -333,7 +333,7 @@ def main(
 
         if target is None:
             print_rank_zero(f"Skipping offline eval because no target is selected.")
-            return
+            return model
         else:
             print_rank_zero(f"Starting offline eval of '{target}' target.")
 
@@ -354,6 +354,8 @@ def main(
         else:
             del eval_config["precision"]
             knn_eval(**eval_config)
+
+        return model
 
 
 def pretrain(
