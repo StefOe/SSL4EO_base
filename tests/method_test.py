@@ -59,7 +59,7 @@ def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str])
 
 
 @pytest.mark.parametrize(
-    "geobench_datasets", ["m-eurosat", "m-so2sat", "m-bigearthnet"]
+    "geobench_dataset", ["m-eurosat", "m-so2sat", "m-bigearthnet"]
 )
 def test_checkpointing_geobench(args, geobench_dataset: str):
     args.log_dir.mkdir(exist_ok=True)
