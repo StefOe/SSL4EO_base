@@ -94,7 +94,8 @@ def geobench_clf_eval(
     # Train linear classifier.
     metric_callback = MetricCallback()
     model_checkpoint = ModelCheckpoint(
-        monitor="val_top1", mode="max", auto_insert_metric_name=True
+        monitor="val_top1" if not debug else "train_top1",
+        mode="max", auto_insert_metric_name=True
     )
     epochs = 90 if method == "linear" else 30
     trainer = Trainer(
