@@ -30,6 +30,7 @@ class BYOLView1Transform(nn.Sequential):
             rr_prob: float = 0.0,
             rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
     ):
+        rr_degrees = 90. if rr_degrees is None else rr_degrees
 
         super().__init__(
             K.RandomResizedCrop(size=(input_size, input_size), scale=(min_scale, 1.0)),
@@ -76,6 +77,7 @@ class BYOLView2Transform(nn.Sequential):
             rr_prob: float = 0.0,
             rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
     ):
+        rr_degrees = 90. if rr_degrees is None else rr_degrees
 
         super().__init__(
             K.RandomResizedCrop(size=(input_size, input_size), scale=(min_scale, 1.0)),
