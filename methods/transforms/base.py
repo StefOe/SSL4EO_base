@@ -12,7 +12,6 @@ class MultiViewTransform(Module):
         super().__init__()
         self.view_transforms = ModuleList(view_transforms)
 
-    @torch.jit.script_method
     def forward(self, images: Tensor) -> list[Tensor]:
         # Apply each transform to the input in parallel to create different views
         views = [view_transform(images) for view_transform in self.view_transforms]

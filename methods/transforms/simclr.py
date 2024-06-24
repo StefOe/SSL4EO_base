@@ -140,14 +140,15 @@ class SimCLRViewTransform(nn.Sequential):
             K.RandomRotation(p=rr_prob, degrees=rr_degrees),
             K.RandomHorizontalFlip(p=hf_prob),
             K.RandomVerticalFlip(p=vf_prob),
-            K.ColorJitter(
-                brightness=cj_strength * cj_bright,
-                contrast=cj_strength * cj_contrast,
-                saturation=cj_strength * cj_sat,
-                hue=cj_strength * cj_hue,
-                p=cj_prob,
-            ),
-            # K.RandomGrayscale(p=random_gray_scale), # -> not useful for Earth Observation?
+            # colorjitter and grayscale not useful and easy applicable for Earth Observation?
+            # K.ColorJitter(
+            #     brightness=cj_strength * cj_bright,
+            #     contrast=cj_strength * cj_contrast,
+            #     saturation=cj_strength * cj_sat,
+            #     hue=cj_strength * cj_hue,
+            #     p=cj_prob,
+            # ),
+            # K.RandomGrayscale(p=random_gray_scale),
             K.RandomGaussianBlur(
                 kernel_size=input_size // 10,
                 sigma=sigmas,
