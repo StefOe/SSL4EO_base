@@ -13,6 +13,7 @@ from data.mmearth_dataset import (
     get_mmearth_dataloaders,
 )
 from eval.helper_modules import FinetuneEvalClassifier
+from methods.transforms.base import FFCVCompose
 
 
 def finetune_eval(
@@ -53,7 +54,7 @@ def finetune_eval(
     print_rank_zero("Running fine-tune evaluation...")
 
     # Setup training data.
-    train_transform = T.Compose(
+    train_transform = FFCVCompose(
         [
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),

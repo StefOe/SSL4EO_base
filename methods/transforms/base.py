@@ -8,10 +8,22 @@ from ffcv.pipeline.allocation_query import AllocationQuery
 from ffcv.pipeline.operation import Operation
 from ffcv.pipeline.state import State
 from numpy.random import rand
+from torchvision.transforms import Compose
 
 
 def to_tensor(array:np.ndarray):
     return torch.from_numpy(array)
+
+
+class FFCVCompose(Compose, Operation):
+    def generate_code(self) -> Callable:
+        def transform(images, _):
+            return self.__call__(images)
+
+        return transform
+
+    def declare_state_and_memory(self, previous_state: State) -> Tuple[State, Optional[AllocationQuery]]:
+        return (previous_state,  AllocationQuery(previous_state.shape, previous_state.dtype))
 
 
 class RandomVerticalFlip(Operation):

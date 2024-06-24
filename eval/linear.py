@@ -12,6 +12,7 @@ from torchvision import transforms as T
 from data.mmearth_dataset import (
     get_mmearth_dataloaders,
 )
+from methods.transforms.base import FFCVCompose
 
 
 def linear_eval(
@@ -52,7 +53,7 @@ def linear_eval(
     print_rank_zero("Running linear evaluation...")
 
     # Setup training data.
-    train_transform = T.Compose(
+    train_transform = FFCVCompose(
         [
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),
