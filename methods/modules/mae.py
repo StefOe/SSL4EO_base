@@ -10,6 +10,7 @@ from pytorch_lightning import LightningModule
 from torch import Tensor
 from torch.nn import MSELoss, Parameter
 from torch.optim import AdamW
+from torch.nn import Module
 
 from methods.modules.base import get_backbone
 
@@ -26,6 +27,7 @@ class MAE(LightningModule):
         img_size: int,
         num_classes: int,
         has_online_classifier: bool,
+        train_transform: Module,
         last_backbone_channel: int = None,
     ):
         assert (
@@ -90,6 +92,8 @@ class MAE(LightningModule):
                 feature_dim=vit.embed_dim, num_classes=num_classes
             )
 
+        self.train_transform = train_transform
+
     def forward(self, x: Tensor) -> Tensor:
         # ensuring that the img size requirements are met (this should only be triggered for offline eval)
         if x.shape[2] != self.img_size or x.shape[3] != self.img_size:
@@ -118,7 +122,9 @@ class MAE(LightningModule):
 
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
         images = batch[0]
-        images = images[0]  # images is a list containing only one view
+        # Create views
+        with torch.no_grad():
+            images = self.train_transform(images)[0] # only expecting single view
 
         batch_size = images.shape[0]
         idx_keep, idx_mask = utils.random_token_mask(

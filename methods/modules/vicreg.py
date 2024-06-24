@@ -7,6 +7,7 @@ from lightly.models.utils import get_weight_decay_parameters
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler
 from torch import Tensor
+from torch.nn import Module
 
 from methods.modules.base import EOModule
 
@@ -21,6 +22,7 @@ class VICReg(EOModule):
         in_channels: int,
         num_classes: int,
         has_online_classifier: bool,
+        train_transform: Module,
         last_backbone_channel: int = None,
     ):
         self.save_hyperparameters()
@@ -31,6 +33,7 @@ class VICReg(EOModule):
             in_channels,
             num_classes,
             has_online_classifier,
+            train_transform,
             last_backbone_channel
         )
 
@@ -40,7 +43,11 @@ class VICReg(EOModule):
         self.criterion = VICRegLoss()
 
     def training_step(self, batch: Dict, batch_idx: int) -> Tensor:
-        views = batch[0]
+        # Forward pass and loss calculation.
+        images = batch[0]
+        # Create views
+        with torch.no_grad():
+            views = self.train_transform(images)
         features = self.forward(torch.cat(views)).flatten(start_dim=1)
         z = self.projection_head(features)
         z_a, z_b = z.chunk(len(views))

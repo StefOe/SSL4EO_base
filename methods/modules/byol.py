@@ -8,6 +8,7 @@ from lightly.models.utils import get_weight_decay_parameters, update_momentum
 from lightly.utils.lars import LARS
 from lightly.utils.scheduler import CosineWarmupScheduler, cosine_schedule
 from torch import Tensor
+from torch.nn import Module
 
 from methods.modules.base import EOModule
 
@@ -22,6 +23,7 @@ class BYOL(EOModule):
         in_channels: int,
         num_classes: int,
         has_online_classifier: bool,
+        train_transform: Module,
         last_backbone_channel: int = None,
     ) -> None:
         self.save_hyperparameters()
@@ -32,6 +34,7 @@ class BYOL(EOModule):
             in_channels,
             num_classes,
             has_online_classifier,
+            train_transform,
             last_backbone_channel,
         )
 
@@ -68,7 +71,10 @@ class BYOL(EOModule):
         update_momentum(self.projection_head, self.teacher_projection_head, m=momentum)
 
         # Forward pass and loss calculation.
-        views = batch[0]
+        images = batch[0]
+        # Create views
+        with torch.no_grad():
+            views = self.train_transform(images)
         teacher_projections_0 = self.forward_teacher(views[0])
         teacher_projections_1 = self.forward_teacher(views[1])
         student_features_0, student_predictions_0 = self.forward_student(views[0])
