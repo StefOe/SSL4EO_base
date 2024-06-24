@@ -70,7 +70,6 @@ class BYOLView2Transform(nn.Sequential):
             random_gray_scale: float = 0.2,
             gaussian_blur: float = 0.1,
             solarization_prob: float = 0.2,
-            kernel_size: Optional[float] = None,
             sigmas: Tuple[float, float] = (0.1, 2),
             vf_prob: float = 0.0,
             hf_prob: float = 0.5,

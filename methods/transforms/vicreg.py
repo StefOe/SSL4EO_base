@@ -100,7 +100,6 @@ class VICRegTransform(MultiViewTransform):
             random_gray_scale=random_gray_scale,
             solarize_prob=solarize_prob,
             gaussian_blur=gaussian_blur,
-            kernel_size=kernel_size,
             sigmas=sigmas,
             vf_prob=vf_prob,
             hf_prob=hf_prob,
