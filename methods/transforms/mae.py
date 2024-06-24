@@ -1,6 +1,7 @@
 from typing import Tuple, Union
 
 import kornia.augmentation as K
+from kornia.constants import Resample
 from torch import Tensor
 from torch import nn
 
@@ -33,8 +34,8 @@ class MAETransform(nn.Sequential):
     ):
         super().__init__(
             K.RandomResizedCrop(
-                input_size, scale=(min_scale, 1.0), interpolation=3
-            ),  # 3 is bicubic
+                input_size, scale=(min_scale, 1.0), resample=Resample.BICUBIC
+            ),
             K.RandomHorizontalFlip(),
             K.RandomVerticalFlip(), # addition that is not in paper
         )
