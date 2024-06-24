@@ -1,6 +1,7 @@
 from dataclasses import replace
-from typing import List, Tuple, Union, Callable, Optional
+from typing import Tuple, Union, Callable, Optional
 
+import torch
 import torchvision.transforms as T
 from PIL.Image import Image
 from ffcv.pipeline.allocation_query import AllocationQuery
@@ -62,29 +63,27 @@ class MAETransform(Operation):
         return [transformed]
 
     def generate_code(self) -> Callable:
-        def transform(image: Union[Tensor, Image], _) -> List[Tensor]:
-            """
-            Applies the transforms to the input image.
+        def transform(image_batch: Tensor, _): # input dim: b x c x h x w -> output sim: b x c x h' x w'
+            # apply transform to each image individually
+            batch = []
+            for image in image_batch:
+                batch.append(self.transform(image))
 
-            Args:
-                image:
-                    The input image to apply the transforms to.
+            return [torch.stack(batch, dim=0)]
 
-            Returns:
-                The transformed image.
-
-            """
-            return self.__call__(image)
-
+            # this is naively apply same augmentation to all images -> faster but less data variability
+            # return self.__call__(image_batch) #
         return transform
 
     def declare_state_and_memory(
         self, previous_state: State
     ) -> Tuple[State, Optional[AllocationQuery]]:
+        shape = (previous_state.shape[0], self.input_size, self.input_size)
         return (
             replace(
                 previous_state,
-                shape=(previous_state.shape[0], self.input_size, self.input_size)
+                shape=shape,
+                # shape=(len(self.transforms), previous_state.shape[0], self.input_size, self.input_size),
             ),
-            None,
+            AllocationQuery(shape, previous_state.dtype),
         )

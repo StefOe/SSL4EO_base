@@ -7,13 +7,45 @@ from ffcv.pipeline import Compiler
 from ffcv.pipeline.allocation_query import AllocationQuery
 from ffcv.pipeline.operation import Operation
 from ffcv.pipeline.state import State
+from lightly.transforms.multi_view_transform import MultiViewTransform
 from numpy.random import rand
+from torch import Tensor
 from torchvision.transforms import Compose
 
 
 def to_tensor(array:np.ndarray):
     return torch.from_numpy(array)
 
+
+class MultiViewOperation(MultiViewTransform, Operation):
+    input_size = None
+    def generate_code(self) -> Callable:
+        def transform(image_batch: Tensor, _): # input dim: b x c x h x w -> output sim: v x b x c x h' x w'
+            # apply transform to each image individually
+            views = []
+            for transform in self.transforms:
+                batch = []
+                for image in image_batch:
+                    batch.append(transform(image))
+                views.append(torch.stack(batch, dim=0))
+            return views
+
+            # this is naively apply same augmentation to all images -> faster but less data variability
+            # return self.__call__(image_batch) #
+        return transform
+
+    def declare_state_and_memory(
+        self, previous_state: State
+    ) -> Tuple[State, Optional[AllocationQuery]]:
+        shape = (previous_state.shape[0], self.input_size, self.input_size)
+        return (
+            replace(
+                previous_state,
+                shape=shape,
+                # shape=(len(self.transforms), previous_state.shape[0], self.input_size, self.input_size),
+            ),
+            AllocationQuery(shape, previous_state.dtype),
+        )
 
 class FFCVCompose(Compose, Operation):
     def generate_code(self) -> Callable:

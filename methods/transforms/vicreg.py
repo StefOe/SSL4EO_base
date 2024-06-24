@@ -1,17 +1,14 @@
-from dataclasses import replace
-from typing import Optional, Tuple, Union, Callable
+from typing import Optional, Tuple, Union
 
 import torchvision.transforms as T
 from PIL.Image import Image
-from ffcv.pipeline.allocation_query import AllocationQuery
-from ffcv.pipeline.operation import Operation
-from ffcv.pipeline.state import State
-from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
+from methods.transforms.base import MultiViewOperation
 
-class VICRegTransform(MultiViewTransform, Operation):
+
+class VICRegTransform(MultiViewOperation):
     """Implements the transformations for VICReg.
 
     Input to this transform:
@@ -118,21 +115,6 @@ class VICRegTransform(MultiViewTransform, Operation):
         self.input_size = input_size
         super().__init__(transforms=[view_transform, view_transform])
 
-    def generate_code(self) -> Callable:
-        def transform(image: Union[Tensor, Image], _):
-            return self.__call__(image)
-        return transform
-
-    def declare_state_and_memory(
-        self, previous_state: State
-    ) -> Tuple[State, Optional[AllocationQuery]]:
-        return (
-            replace(
-                previous_state,
-                shape=(previous_state.shape[0], self.input_size, self.input_size),
-            ),
-            None,
-        )
 
 
 class VICRegViewTransform:

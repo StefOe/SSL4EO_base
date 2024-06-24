@@ -1,17 +1,14 @@
-from dataclasses import replace
-from typing import Optional, Tuple, Union, Callable
+from typing import Optional, Tuple, Union
 
 import torchvision.transforms as T
 from PIL.Image import Image
-from ffcv.pipeline.allocation_query import AllocationQuery
-from ffcv.pipeline.operation import Operation
-from ffcv.pipeline.state import State
-from lightly.transforms.multi_view_transform import MultiViewTransform
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
+from methods.transforms.base import MultiViewOperation
 
-class SimCLRTransform(MultiViewTransform, Operation):
+
+class SimCLRTransform(MultiViewOperation):
     """Implements the transformations for SimCLR [0, 1].
 
     Input to this transform:
@@ -122,23 +119,6 @@ class SimCLRTransform(MultiViewTransform, Operation):
         )
         super().__init__(transforms=[view_transform, view_transform])
         self.input_size = input_size
-
-    def generate_code(self) -> Callable:
-        def transform(image: Union[Tensor, Image], _):
-            return self.__call__(image)
-
-        return transform
-
-    def declare_state_and_memory(
-        self, previous_state: State
-    ) -> Tuple[State, Optional[AllocationQuery]]:
-        return (
-            replace(
-                previous_state,
-                shape=(previous_state.shape[0], self.input_size, self.input_size),
-            ),
-            None,
-        )
 
 
 class SimCLRViewTransform:

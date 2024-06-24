@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import torch.cuda
 
+from data import constants
 from eval import geobench_clf_eval
 from main import main, METHODS
 
@@ -12,14 +13,14 @@ from main import main, METHODS
 @pytest.fixture
 def args():
     args = Namespace()
-    data_root = Path("./datasets/data_1k")
+    data_root = constants.MMEARTH_DIR
     assert data_root.exists(), f"need data (in {data_root}) to test this"
     args.data_dir = data_root
     args.processed_dir = None
     args.log_dir = Path("test_out")
     args.batch_size_per_device = 2
     args.epochs = 2
-    args.num_workers = 0
+    args.num_workers = 2
     args.accelerator = "gpu" if torch.cuda.is_available() else "cpu"
     args.devices = 1
     args.precision = "16-mixed"
@@ -105,3 +106,5 @@ def test_methods(args, methods: str, target, last_backbone_channel):
     finally:
         # cleanup
         shutil.rmtree(args.log_dir, ignore_errors=True)
+
+

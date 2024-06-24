@@ -10,8 +10,9 @@ We assume that you have a NVIDIA GPU available.
 1. create the python env: `mamba env create -f env.yml`
 2. activate the env: `mamba activate ssl4eo`
 2. download the MMEarth data: TODO
-3. to download geobench data, run: `geobench-download`
-4. (optional) run the tests: `pytest`
+3. set the env variable to your MMEarth directory: `export MMEARTH_DIR=<your path> `
+4. to download geobench data, run: `geobench-download`
+5. (optional) run the tests: `pytest`
 
 ## Start training
 
