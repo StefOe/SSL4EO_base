@@ -14,9 +14,8 @@ class BackboneExpander(nn.Module):
         self.backbone_out = backbone_out
 
     def forward(self, x: Tensor) -> Tensor:
-        features = self.backbone(x)[
-            -1
-        ]  # model returns all intermediate results, only use last one
+        # model returns all intermediate results, only use last one
+        features = self.backbone(x)[-1]
         return self.backbone_out(features)
 
     def _get_name(self):
@@ -31,7 +30,8 @@ class EOModule(LightningModule):
         in_channels: int,
         num_classes: int,
         has_online_classifier: bool,
-        last_backbone_channel: int = None
+        train_transform: nn.Module,
+        last_backbone_channel: int = None,
     ):
         super().__init__()
         self.batch_size_per_device = batch_size_per_device
@@ -67,15 +67,16 @@ class EOModule(LightningModule):
         self.last_backbone_channel = last_backbone_channel
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
-        self.has_online_classifier =has_online_classifier
+        self.has_online_classifier = has_online_classifier
         if has_online_classifier is not None:
             self.online_classifier = OnlineLinearClassifier(
                 self.last_backbone_channel, num_classes=num_classes
             )
 
+        self.train_transform = train_transform
+
     # these are the interfaces for torch and torchlightning to fill for each method
     def forward(self, x: Tensor) -> Tensor:
-        # x = nn.functional.interpolate(x, 224) # if fixed input size is required
         features = self.backbone(x)
         return self.global_pool(features)
 
@@ -83,6 +84,7 @@ class EOModule(LightningModule):
         self, batch: Tuple[List[Tensor], Tensor, List[str]], batch_idx: int
     ) -> Tensor:
         raise NotImplementedError
+
 
     def validation_step(self, batch: Dict, batch_idx: int) -> Tensor:
         images = batch[0]

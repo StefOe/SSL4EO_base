@@ -6,14 +6,13 @@ from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger
-from torch.nn import Module
-from torchvision import transforms as T
+from torch.nn import Module, Sequential
+import kornia.augmentation as K
 
 from data.mmearth_dataset import (
     get_mmearth_dataloaders,
 )
 from eval.helper_modules import FinetuneEvalClassifier
-from methods.transforms.base import FFCVCompose
 
 
 def finetune_eval(
@@ -54,14 +53,11 @@ def finetune_eval(
     print_rank_zero("Running fine-tune evaluation...")
 
     # Setup training data.
-    train_transform = FFCVCompose(
-        [
-            T.RandomHorizontalFlip(),
-            T.RandomVerticalFlip(),
-        ]
+    train_transform = Sequential(
+        K.RandomHorizontalFlip(),
+        K.RandomVerticalFlip(),
     )
     train_dataloader, val_dataloader = get_mmearth_dataloaders(
-        train_transform,
         data_dir,
         processed_dir,
         input_modality,
@@ -99,6 +95,7 @@ def finetune_eval(
     classifier = FinetuneEvalClassifier(
         model=model,
         batch_size_per_device=batch_size_per_device,
+        train_transform=train_transform,
         feature_dim=model.last_backbone_channel,
         num_classes=num_classes,
         freeze_model=False,

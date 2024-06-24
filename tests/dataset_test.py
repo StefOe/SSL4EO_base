@@ -71,7 +71,7 @@ def test_mmearth_dataloader(modalities, target_modalities, no_ffcv):
 
     try:
         loader = get_mmearth_dataloaders(
-            None, constants.MMEARTH_DIR, test_out,
+            constants.MMEARTH_DIR, test_out,
             modalities, target_modalities, 2, 2, ["train"], no_ffcv,
             indices=None if no_ffcv else [list(range(10))]
         )

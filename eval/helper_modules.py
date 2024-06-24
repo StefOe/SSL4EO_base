@@ -1,21 +1,41 @@
-from modulefinder import Module
 from typing import Tuple, Dict
 
+import torch
 from lightly.utils.benchmarking import LinearClassifier as LightningLinearClassifier
 from lightly.utils.scheduler import CosineWarmupScheduler
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import SGD
 from torchmetrics.functional import accuracy, f1_score, average_precision
 
 
 class LinearClassifier(LightningLinearClassifier):
+    def __init__(
+        self,
+        model: nn.Module,
+        batch_size_per_device: int,
+        feature_dim: int = 2048,
+        num_classes: int = 1000,
+        topk: Tuple[int, ...] = (1, 5),
+        freeze_model: bool = False,
+        train_transform: nn.Module = None,
+    ):
+        super().__init__(model, batch_size_per_device, feature_dim, num_classes, topk, freeze_model)
+        self.train_transform = nn.Sequential() if train_transform is None else train_transform
+
+    def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
+        with torch.no_grad():
+            images = self.train_transform(batch[0])
+        super().training_step((images, *batch[1:]), batch_idx)
+
     # adding missing test_step function
     def test_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
         loss, topk = self.shared_step(batch=batch, batch_idx=batch_idx)
         batch_size = len(batch[1])
         log_dict = {f"test_top{k}": acc for k, acc in topk.items()}
-        self.log("test_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        self.log(
+            "test_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size
+        )
         self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
         return loss
 
@@ -25,14 +45,15 @@ class LinearMultiLabelClassifier(LinearClassifier):
 
     def __init__(
         self,
-        model: Module,
+        model: nn.Module,
         batch_size_per_device: int,
         feature_dim: int,
         num_classes: int,
         freeze_model: bool,
+        train_transform: nn.Module = None,
     ):
         super().__init__(
-            model, batch_size_per_device, feature_dim, num_classes, (-1,), freeze_model
+            model, batch_size_per_device, feature_dim, num_classes, (-1,), freeze_model, train_transform
         )
         self.num_classes = num_classes
         self.criterion = BCEWithLogitsLoss()
@@ -99,7 +120,11 @@ class LinearMultiLabelClassifier(LinearClassifier):
         return loss, metrics
 
     def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
-        loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
+        with torch.no_grad():
+            images = self.train_transform(batch[0])
+        loss, metrics = self.shared_step(
+            batch=(images, *batch[1:]), batch_idx=batch_idx
+        )
         batch_size = len(batch[1])
         log_dict = {f"train_{metric}": value for metric, value in metrics.items()}
         self.log(
@@ -116,12 +141,13 @@ class LinearMultiLabelClassifier(LinearClassifier):
         self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
         return loss
 
-
     def test_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
         loss, metrics = self.shared_step(batch=batch, batch_idx=batch_idx)
         batch_size = len(batch[1])
         log_dict = {f"test_{metric}": value for metric, value in metrics.items()}
-        self.log("test_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size)
+        self.log(
+            "test_loss", loss, prog_bar=True, sync_dist=True, batch_size=batch_size
+        )
         self.log_dict(log_dict, prog_bar=True, sync_dist=True, batch_size=batch_size)
         return loss
 
@@ -146,6 +172,8 @@ class FinetuneEvalClassifier(LinearClassifier):
             "interval": "step",
         }
         return [optimizer], [scheduler]
+
+
 class FinetuneMultiLabelClassifier(LinearMultiLabelClassifier):
     """Finetune classifier for benchmarking binary multilabel classification."""
 
@@ -167,6 +195,3 @@ class FinetuneMultiLabelClassifier(LinearMultiLabelClassifier):
             "interval": "step",
         }
         return [optimizer], [scheduler]
-
-
-

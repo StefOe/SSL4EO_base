@@ -2,6 +2,7 @@ from typing import Optional, Tuple, Union
 
 import torchvision.transforms as T
 from PIL.Image import Image
+from lightly.transforms import GaussianBlur
 from lightly.transforms.rotation import random_rotation_transform
 from torch import Tensor
 
@@ -47,7 +48,7 @@ class BYOLView1Transform:
             T.RandomVerticalFlip(p=vf_prob),
             # T.RandomApply([color_jitter], p=cj_prob),
             # T.RandomGrayscale(p=random_gray_scale),
-            # GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
+            GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
             # RandomSolarization(prob=solarization_prob),
         ]
         self.transform = T.Compose(transform)

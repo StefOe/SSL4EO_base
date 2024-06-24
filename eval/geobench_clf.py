@@ -6,13 +6,16 @@ from lightly.utils.dist import print_rank_zero
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
-from torch.nn import Module
+from torch.nn import Module, Sequential
 from torch.utils.data import DataLoader
-from torchvision import transforms as T
+import kornia.augmentation as K
 
 from data import GeobenchDataset
 from eval.helper_modules import (
-    LinearMultiLabelClassifier, FinetuneMultiLabelClassifier, LinearClassifier, FinetuneEvalClassifier,
+    LinearMultiLabelClassifier,
+    FinetuneMultiLabelClassifier,
+    LinearClassifier,
+    FinetuneEvalClassifier,
 )
 
 
@@ -54,17 +57,14 @@ def geobench_clf_eval(
 
     # Setup training data.
 
-    train_transform = T.Compose(
-        [
-            T.RandomHorizontalFlip(),
-            T.RandomVerticalFlip(),
-        ]
+    train_transform = Sequential(
+        K.RandomHorizontalFlip(),
+        K.RandomVerticalFlip(),
     )
     train_dataset = GeobenchDataset(
         dataset_name=dataset_name,
         split="train",
         partition=partition,
-        transform=train_transform,
         benchmark_name="classification",
     )
     train_dataloader = DataLoader(
@@ -79,7 +79,6 @@ def geobench_clf_eval(
     val_dataset = GeobenchDataset(
         dataset_name=dataset_name,
         split="val",
-        transform=None,
         benchmark_name="classification",
     )
     val_dataloader = DataLoader(
@@ -92,8 +91,7 @@ def geobench_clf_eval(
     # Train linear classifier.
     metric_callback = MetricCallback()
     model_checkpoint = ModelCheckpoint(
-        monitor="val_top1",
-        mode="max", auto_insert_metric_name=True
+        monitor="val_top1", mode="max", auto_insert_metric_name=True
     )
     epochs = 90 if method == "linear" else 30
     trainer = Trainer(
@@ -116,7 +114,6 @@ def geobench_clf_eval(
         precision=precision,
         # strategy="ddp_find_unused_parameters_true",
         num_sanity_val_steps=0,
-
         # this is just for debug
         fast_dev_run=debug and debug != "long",
         limit_train_batches=1 if debug else None,
@@ -130,6 +127,7 @@ def geobench_clf_eval(
         is_multi_label=dataset_name == "m-bigearthnet",
         num_classes=train_dataset.num_classes,
         batch_size_per_device=batch_size_per_device,
+        train_transform=train_transform,
     )
 
     trainer.fit(
@@ -161,7 +159,11 @@ def geobench_clf_eval(
         drop_last=False,
     )
 
-    best_model_path = model_checkpoint.best_model_path if model_checkpoint.best_model_path != "" else None
+    best_model_path = (
+        model_checkpoint.best_model_path
+        if model_checkpoint.best_model_path != ""
+        else None
+    )
     trainer.test(
         model=classifier,
         dataloaders=test_dataloader,

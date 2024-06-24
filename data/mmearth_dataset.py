@@ -219,7 +219,6 @@ def create_MMEearth_args(
 
 
 def get_mmearth_dataloaders(
-    train_transform,
     data_dir: Path,
     processed_dir: Path,
     input_modality: dict,
@@ -236,8 +235,6 @@ def get_mmearth_dataloaders(
 
     Parameters:
     ----------
-    train_transform : callable
-        Transformations to apply to the training data.
     data_dir : Path
         The directory where the raw dataset is stored.
     processed_dir : Path
@@ -268,7 +265,6 @@ def get_mmearth_dataloaders(
     ```python
     from pathlib import Path
 
-    train_transform = ...  # Define your training transformations
     data_dir = Path("/path/to/raw/data")
     processed_dir = Path("/path/to/processed/data")
     input_modality = {...}  # Define your input modality configurations
@@ -277,7 +273,6 @@ def get_mmearth_dataloaders(
     batch_size_per_device = 32
 
     dataloaders = get_mmearth_dataloaders(
-        train_transform,
         data_dir,
         processed_dir,
         input_modality,
@@ -336,9 +331,7 @@ def get_mmearth_dataloaders(
                 )
                 transform = None
             else:
-                transform = (
-                    Compose([to_tensor, train_transform]) if (is_train and train_transform is not None) else to_tensor
-                )
+                transform = to_tensor
             args = create_MMEearth_args(data_dir, input_modality, target_modality)
             dataset = MMEarthDataset(
                 args, split=split, transform=transform, return_tuple=True
@@ -380,14 +373,9 @@ def get_mmearth_dataloaders(
 
         # Data decoding and augmentation
         # Pipeline for each data field
-        if is_train and train_transform is not None:
-            pipelines = {
-                "sentinel2": [NDArrayDecoder(), ToTensor(), train_transform],
-            }
-        else:
-            pipelines = {
-                "sentinel2": [NDArrayDecoder(), ToTensor()],
-            }
+        pipelines = {
+            "sentinel2": [NDArrayDecoder(), ToTensor()],
+        }
 
         if target_modality is not None:
             pipelines.update(

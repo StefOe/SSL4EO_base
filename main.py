@@ -268,6 +268,7 @@ def main(
             num_classes=num_classes,
             in_channels=in_channels,
             has_online_classifier=target is not None,
+            train_transform=METHODS[method]["transform"],
             last_backbone_channel=last_backbone_channel,
         )
 
@@ -292,7 +293,6 @@ def main(
             "debug": debug,
         }
 
-
         if epochs <= 0:
             print_rank_zero("Epochs <= 0, skipping pretraining.")
             if ckpt_path is not None:
@@ -302,7 +302,8 @@ def main(
             pretrain_config = default_config.copy()
             pretrain_config["epochs"] = epochs
             pretrain_config["ckpt_path"] = ckpt_path
-            pretrain_config["method"] = method
+
+            print_rank_zero(f"Running pretraining for {method}...")
             pretrain(**pretrain_config)
 
         if not geobench_datasets:
@@ -360,7 +361,6 @@ def main(
 
 def pretrain(
     model: LightningModule,
-    method: str,
     input_modality: dict,
     target_modality: dict,
     log_dir: Path,
@@ -376,12 +376,8 @@ def pretrain(
     no_ffcv: bool,
     debug: bool = False,
 ) -> None:
-    print_rank_zero(f"Running pretraining for {method}...")
-
     # Setup training data.
-    train_transform = METHODS[method]["transform"]
     train_dataloader, val_dataloader = get_mmearth_dataloaders(
-        train_transform,
         data_dir,
         processed_dir,
         input_modality,

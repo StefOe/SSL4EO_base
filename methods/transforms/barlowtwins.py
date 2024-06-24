@@ -1,128 +1,101 @@
 from typing import Optional, Tuple, Union
 
-import torchvision.transforms as T
-from PIL.Image import Image
-from lightly.transforms.rotation import random_rotation_transform
-from torch import Tensor
+import kornia.augmentation as K
+from torch import nn
 
-from methods.transforms.base import MultiViewOperation
+from methods.transforms.base import MultiViewTransform
 
 
-class BarlowTwinsView1Transform:
+class BarlowTwinsView1Transform(nn.Sequential):
     def __init__(
-            self,
-            input_size: int = 112,
-            cj_prob: float = 0.8,
-            cj_strength: float = 1.0,
-            cj_bright: float = 0.4,
-            cj_contrast: float = 0.4,
-            cj_sat: float = 0.2,
-            cj_hue: float = 0.1,
-            min_scale: float = 0.08,
-            random_gray_scale: float = 0.2,
-            gaussian_blur: float = 1.0,
-            solarization_prob: float = 0.0,
-            kernel_size: Optional[float] = None,
-            sigmas: Tuple[float, float] = (0.1, 2),
-            vf_prob: float = 0.0,
-            hf_prob: float = 0.5,
-            rr_prob: float = 0.0,
-            rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
+        self,
+        input_size: int = 112,
+        cj_prob: float = 0.8,
+        cj_strength: float = 1.0,
+        cj_bright: float = 0.4,
+        cj_contrast: float = 0.4,
+        cj_sat: float = 0.2,
+        cj_hue: float = 0.1,
+        min_scale: float = 0.08,
+        random_gray_scale: float = 0.2,
+        gaussian_blur: float = 1.0,
+        solarization_prob: float = 0.0,
+        sigmas: Tuple[float, float] = (0.1, 2),
+        vf_prob: float = 0.0,
+        hf_prob: float = 0.5,
+        rr_prob: float = 0.0,
+        rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
     ):
-        color_jitter = T.ColorJitter(
-            brightness=cj_strength * cj_bright,
-            contrast=cj_strength * cj_contrast,
-            saturation=cj_strength * cj_sat,
-            hue=cj_strength * cj_hue,
-        )
 
-        transform = [
-            T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
-            random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
-            T.RandomHorizontalFlip(p=hf_prob),
-            T.RandomVerticalFlip(p=vf_prob),
-            # T.RandomApply([color_jitter], p=cj_prob),
-            # T.RandomGrayscale(p=random_gray_scale),
-            # GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
-            # RandomSolarization(prob=solarization_prob),
-        ]
-        self.transform = T.Compose(transform)
+        super().__init__(
+            K.RandomResizedCrop(size=(input_size, input_size), scale=(min_scale, 1.0)),
+            K.RandomRotation(p=rr_prob, degrees=rr_degrees),
+            K.RandomHorizontalFlip(p=hf_prob),
+            K.RandomVerticalFlip(p=vf_prob),
+            K.ColorJitter(
+                brightness=cj_strength * cj_bright,
+                contrast=cj_strength * cj_contrast,
+                saturation=cj_strength * cj_sat,
+                hue=cj_strength * cj_hue,
+                p=cj_prob,
+            ),
+            # K.RandomGrayscale(p=random_gray_scale), # -> not useful for Earth Observation?
+            K.RandomGaussianBlur(
+                kernel_size=input_size // 10,
+                sigma=sigmas,
+                p=gaussian_blur,
+                border_type="same",
+            ),
+            K.RandomSolarize(p=solarization_prob),
+        )
         self.input_size = input_size
 
-    def __call__(self, image: Union[Tensor, Image]) -> Tensor:
-        """
-        Applies the transforms to the input image.
 
-        Args:
-            image:
-                The input image to apply the transforms to.
-
-        Returns:
-            The transformed image.
-
-        """
-        transformed: Tensor = self.transform(image)
-        return transformed
-
-
-class BarlowTwinsView2Transform:
+class BarlowTwinsView2Transform(nn.Sequential):
     def __init__(
-            self,
-            input_size: int = 112,
-            cj_prob: float = 0.8,
-            cj_strength: float = 1.0,
-            cj_bright: float = 0.4,
-            cj_contrast: float = 0.4,
-            cj_sat: float = 0.2,
-            cj_hue: float = 0.1,
-            min_scale: float = 0.08,
-            random_gray_scale: float = 0.2,
-            gaussian_blur: float = 0.1,
-            solarization_prob: float = 0.2,
-            kernel_size: Optional[float] = None,
-            sigmas: Tuple[float, float] = (0.1, 2),
-            vf_prob: float = 0.0,
-            hf_prob: float = 0.5,
-            rr_prob: float = 0.0,
-            rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
+        self,
+        input_size: int = 112,
+        cj_prob: float = 0.8,
+        cj_strength: float = 1.0,
+        cj_bright: float = 0.4,
+        cj_contrast: float = 0.4,
+        cj_sat: float = 0.2,
+        cj_hue: float = 0.1,
+        min_scale: float = 0.08,
+        random_gray_scale: float = 0.2,
+        gaussian_blur: float = 0.1,
+        solarization_prob: float = 0.2,
+        sigmas: Tuple[float, float] = (0.1, 2),
+        vf_prob: float = 0.0,
+        hf_prob: float = 0.5,
+        rr_prob: float = 0.0,
+        rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
     ):
-        color_jitter = T.ColorJitter(
-            brightness=cj_strength * cj_bright,
-            contrast=cj_strength * cj_contrast,
-            saturation=cj_strength * cj_sat,
-            hue=cj_strength * cj_hue,
+        super().__init__(
+            K.RandomResizedCrop(size=(input_size, input_size), scale=(min_scale, 1.0)),
+            K.RandomRotation(p=rr_prob, degrees=rr_degrees),
+            K.RandomHorizontalFlip(p=hf_prob),
+            K.RandomVerticalFlip(p=vf_prob),
+            K.ColorJitter(
+                brightness=cj_strength * cj_bright,
+                contrast=cj_strength * cj_contrast,
+                saturation=cj_strength * cj_sat,
+                hue=cj_strength * cj_hue,
+                p=cj_prob,
+            ),
+            # K.RandomGrayscale(p=random_gray_scale), # -> not useful for Earth Observation?
+            K.RandomGaussianBlur(
+                kernel_size=input_size // 10,
+                sigma=sigmas,
+                p=gaussian_blur,
+                border_type="same",
+            ),
+            K.RandomSolarize(p=solarization_prob),
         )
-
-        transform = [
-            T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
-            random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
-            T.RandomHorizontalFlip(p=hf_prob),
-            T.RandomVerticalFlip(p=vf_prob),
-            # T.RandomApply([color_jitter], p=cj_prob),
-            # T.RandomGrayscale(p=random_gray_scale),
-            # GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
-            # RandomSolarization(prob=solarization_prob),
-        ]
-        self.transform = T.Compose(transform)
         self.input_size = input_size
 
-    def __call__(self, image: Union[Tensor, Image]) -> Tensor:
-        """
-        Applies the transforms to the input image.
 
-        Args:
-            image:
-                The input image to apply the transforms to.
-
-        Returns:
-            The transformed image.
-
-        """
-        transformed: Tensor = self.transform(image)
-        return transformed
-
-
-class BarlowTwinsTransform(MultiViewOperation):
+class BarlowTwinsTransform(MultiViewTransform):
     """Implements the transformations for BYOL[0].
 
     Input to this transform:
@@ -154,16 +127,15 @@ class BarlowTwinsTransform(MultiViewOperation):
     Attributes:
         view_1_transform: The transform for the first view.
         view_2_transform: The transform for the second view.
+        input_size:
     """
 
     def __init__(
-            self,
-            view_1_transform: Optional[BarlowTwinsView1Transform] = None,
-            view_2_transform: Optional[BarlowTwinsView2Transform] = None,
+        self,
+        view_1_transform: BarlowTwinsView1Transform,
+        view_2_transform: BarlowTwinsView2Transform,
     ):
         # We need to initialize the transforms here
         view_1_transform = view_1_transform or BarlowTwinsView1Transform()
         view_2_transform = view_2_transform or BarlowTwinsView2Transform()
-        super().__init__(transforms=[view_1_transform, view_2_transform])
-        self.input_size  = self.transforms[0].input_size
-
+        super().__init__(view_transforms=[view_1_transform, view_2_transform])

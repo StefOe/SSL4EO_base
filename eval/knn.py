@@ -45,7 +45,6 @@ def knn_eval(
 
     # Setup training data.
     train_dataloader, val_dataloader = get_mmearth_dataloaders(
-        None,
         data_dir,
         processed_dir,
         input_modality,

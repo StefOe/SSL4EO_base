@@ -2,13 +2,11 @@ import shutil
 from pathlib import Path
 
 import pytest
-from torchvision import transforms as T
 
 from data import constants
 from data.constants import MMEARTH_DIR
 from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args, get_mmearth_dataloaders
 from methods import transforms
-from methods.transforms import to_tensor
 
 input_size = 112
 
@@ -35,12 +33,12 @@ def test_augmentations(transform):
     args = create_MMEearth_args(MMEARTH_DIR, modalities, constants.MODALITIES_FULL)
 
     args.modalities = modalities
-    transform = T.Compose([to_tensor, transform])
-    dataset = MMEarthDataset(args, split=split, transform=transform)
+    dataset = MMEarthDataset(args, split=split)
 
     if split == "train":
         num_samples = 10
         for i, data in enumerate(dataset):
+            transform(data)
             if i >= num_samples:
                 break
 
@@ -72,13 +70,14 @@ def test_augmentation_dataloader(transform, no_ffcv):
 
     try:
         loader = get_mmearth_dataloaders(
-            transform, constants.MMEARTH_DIR, test_out,
+            constants.MMEARTH_DIR, test_out,
             modalities, target_modality, 1, 10, ["train"], no_ffcv,
             indices=[[i for i in range(30)]] if not no_ffcv else None
         )
 
         num_batches = 3
         for b_i, data in enumerate(loader):
+            transform(data)
             if b_i >= num_batches: break
     finally:
         # cleanup
