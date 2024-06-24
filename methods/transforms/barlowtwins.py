@@ -45,7 +45,7 @@ class BarlowTwinsView1Transform(nn.Sequential):
                 kernel_size=input_size // 10,
                 sigma=sigmas,
                 p=gaussian_blur,
-                border_type="same",
+                border_type="constant",
             ),
             K.RandomSolarize(p=solarization_prob),
         )
@@ -91,7 +91,7 @@ class BarlowTwinsView2Transform(nn.Sequential):
                 kernel_size=input_size // 10,
                 sigma=sigmas,
                 p=gaussian_blur,
-                border_type="same",
+                border_type="constant",
             ),
             K.RandomSolarize(p=solarization_prob),
         )

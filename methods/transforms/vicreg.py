@@ -151,6 +151,6 @@ class VICRegViewTransform(nn.Sequential):
                 kernel_size=input_size // 10,
                 sigma=sigmas,
                 p=gaussian_blur,
-                border_type="same",
+                border_type="constant",
             ),
         )
