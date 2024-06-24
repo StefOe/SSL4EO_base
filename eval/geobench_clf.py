@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import kornia.augmentation as K
 import wandb
 from lightly.utils.benchmarking import MetricCallback
 from lightly.utils.dist import print_rank_zero
@@ -8,7 +9,6 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from torch.nn import Module, Sequential
 from torch.utils.data import DataLoader
-import kornia.augmentation as K
 
 from data import GeobenchDataset
 from eval.helper_modules import (
@@ -179,6 +179,7 @@ def get_geobench_classifier(
     is_multi_label: bool,
     num_classes: int,
     batch_size_per_device: int,
+    train_transform: Module,
 ):
     if method == "linear":
         # if dataset is multi-label, we need a different classifier class
@@ -195,5 +196,6 @@ def get_geobench_classifier(
         feature_dim=model.last_backbone_channel,
         num_classes=num_classes,
         freeze_model=method == "linear",
+        train_transform=train_transform,
     )
     return classifier

@@ -26,7 +26,7 @@ class LinearClassifier(LightningLinearClassifier):
     def training_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
         with torch.no_grad():
             images = self.train_transform(batch[0])
-        super().training_step((images, *batch[1:]), batch_idx)
+        return super().training_step((images, *batch[1:]), batch_idx)
 
     # adding missing test_step function
     def test_step(self, batch: Tuple[Tensor, ...], batch_idx: int) -> Tensor:
