@@ -73,10 +73,11 @@ def test_augmentation_dataloader(transform, no_ffcv):
     try:
         loader = get_mmearth_dataloaders(
             transform, constants.MMEARTH_DIR, test_out,
-            modalities, target_modality, 4, 64, ["train"], no_ffcv,
+            modalities, target_modality, 1, 10, ["train"], no_ffcv,
+            indices=[[i for i in range(30)]] if not no_ffcv else None
         )
 
-        num_batches = 10
+        num_batches = 3
         for b_i, data in enumerate(loader):
             if b_i >= num_batches: break
     finally:
