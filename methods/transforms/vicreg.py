@@ -1,14 +1,12 @@
 from typing import Optional, Tuple, Union
 
-import torchvision.transforms as T
-from PIL.Image import Image
-from lightly.transforms.rotation import random_rotation_transform
-from torch import Tensor
+import kornia.augmentation as K
+from torch import nn
 
-from methods.transforms.base import MultiViewOperation
+from methods.transforms.base import MultiViewTransform
 
 
-class VICRegTransform(MultiViewOperation):
+class VICRegTransform(MultiViewTransform):
     """Implements the transformations for VICReg.
 
     Input to this transform:
@@ -52,9 +50,6 @@ class VICRegTransform(MultiViewOperation):
             Probability of solarization.
         gaussian_blur:
             Probability of Gaussian blur.
-        kernel_size:
-            Will be deprecated in favor of `sigmas` argument. If set, the old behavior applies and `sigmas` is ignored.
-            Used to calculate sigma of gaussian blur with kernel_size * input_size.
         sigmas:
             Tuple of min and max value from which the std of the gaussian kernel is sampled.
             Is ignored if `kernel_size` is set.
@@ -112,12 +107,11 @@ class VICRegTransform(MultiViewOperation):
             rr_prob=rr_prob,
             rr_degrees=rr_degrees,
         )
+        super().__init__(view_transforms=[view_transform, view_transform])
         self.input_size = input_size
-        super().__init__(transforms=[view_transform, view_transform])
 
 
-
-class VICRegViewTransform:
+class VICRegViewTransform(nn.Sequential):
     def __init__(
         self,
         input_size: int = 224,
@@ -131,43 +125,30 @@ class VICRegViewTransform:
         random_gray_scale: float = 0.2,
         solarize_prob: float = 0.1,
         gaussian_blur: float = 0.5,
-        kernel_size: Optional[float] = None,
         sigmas: Tuple[float, float] = (0.2, 2),
         vf_prob: float = 0.0,
         hf_prob: float = 0.5,
         rr_prob: float = 0.0,
         rr_degrees: Optional[Union[float, Tuple[float, float]]] = None,
     ):
-        color_jitter = T.ColorJitter(
-            brightness=cj_strength * cj_bright,
-            contrast=cj_strength * cj_contrast,
-            saturation=cj_strength * cj_sat,
-            hue=cj_strength * cj_hue,
+        super().__init__(
+            K.RandomResizedCrop(size=(input_size, input_size), scale=(min_scale, 1.0)),
+            K.RandomRotation(p=rr_prob, degrees=rr_degrees),
+            K.RandomHorizontalFlip(p=hf_prob),
+            K.RandomVerticalFlip(p=vf_prob),
+            K.ColorJitter(
+                brightness=cj_strength * cj_bright,
+                contrast=cj_strength * cj_contrast,
+                saturation=cj_strength * cj_sat,
+                hue=cj_strength * cj_hue,
+                p=cj_prob,
+            ),
+            # K.RandomGrayscale(p=random_gray_scale), # -> not useful for Earth Observation?
+            K.RandomSolarize(p=solarize_prob),
+            K.RandomGaussianBlur(
+                kernel_size=input_size // 10,
+                sigma=sigmas,
+                p=gaussian_blur,
+                border_type="same",
+            ),
         )
-
-        transform = [
-            T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
-            random_rotation_transform(rr_prob=rr_prob, rr_degrees=rr_degrees),
-            T.RandomHorizontalFlip(p=hf_prob),
-            T.RandomVerticalFlip(p=vf_prob),
-            # T.RandomApply([color_jitter], p=cj_prob),
-            # T.RandomGrayscale(p=random_gray_scale),
-            # RandomSolarization(prob=solarize_prob),
-            # GaussianBlur(kernel_size=kernel_size, sigmas=sigmas, prob=gaussian_blur),
-        ]
-        self.transform = T.Compose(transform)
-
-    def __call__(self, image: Union[Tensor, Image]) -> Tensor:
-        """
-        Applies the transforms to the input image.
-
-        Args:
-            image:
-                The input image to apply the transforms to.
-
-        Returns:
-            The transformed image.
-
-        """
-        transformed: Tensor = self.transform(image)
-        return transformed
