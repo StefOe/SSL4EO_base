@@ -30,11 +30,11 @@ class MAETransform(nn.Sequential):
     """
 
     def __init__(
-        self, input_size: Union[int, Tuple[int, int]] = 112, min_scale: float = 0.2
+        self, input_size: int = 112, min_scale: float = 0.2
     ):
         super().__init__(
             K.RandomResizedCrop(
-                input_size, scale=(min_scale, 1.0), resample=Resample.BICUBIC
+                (input_size, input_size), scale=(min_scale, 1.0), resample=Resample.BICUBIC
             ),
             K.RandomHorizontalFlip(),
             K.RandomVerticalFlip(), # addition that is not in paper
