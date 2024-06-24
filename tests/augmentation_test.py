@@ -7,6 +7,7 @@ from data import constants
 from data.constants import MMEARTH_DIR
 from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args, get_mmearth_dataloaders
 from methods import transforms
+import torch
 
 input_size = 112
 
@@ -38,7 +39,7 @@ def test_augmentations(transform):
     if split == "train":
         num_samples = 10
         for i, data in enumerate(dataset):
-            transform(data)
+            transform(torch.from_numpy(data["sentinel2"]).unsqueeze(0))
             if i >= num_samples:
                 break
 
@@ -73,11 +74,11 @@ def test_augmentation_dataloader(transform, no_ffcv):
             constants.MMEARTH_DIR, test_out,
             modalities, target_modality, 1, 10, ["train"], no_ffcv,
             indices=[[i for i in range(30)]] if not no_ffcv else None
-        )
+        )[0]
 
         num_batches = 3
         for b_i, data in enumerate(loader):
-            transform(data)
+            transform(data[0])
             if b_i >= num_batches: break
     finally:
         # cleanup

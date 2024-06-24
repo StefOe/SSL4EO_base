@@ -26,7 +26,7 @@ from .constants import NO_DATA_VAL, MODALITIES_FULL, MODALITY_TASK, ori_input_si
 
 
 class MMEarthDataset(Dataset):
-    def __init__(self, args, split: str, transform, return_tuple: bool = False):
+    def __init__(self, args, split: str, transform = None, return_tuple: bool = False):
         # return_dict transform
         self.transform = transform
 
