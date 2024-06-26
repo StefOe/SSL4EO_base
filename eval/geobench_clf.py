@@ -53,7 +53,7 @@ def geobench_clf_eval(
         "m-eurosat",
         "m-so2sat",
         "m-bigearthnet",
-    ], f"dataset '{dataset_name}' not supported"
+    ], f"dataset '{dataset_name}' not supported" # only classification TODO
     print_rank_zero("Running geobench evaluation...")
 
     # Setup training data.

@@ -320,11 +320,13 @@ def main(
                         dataset_name=dataset_name,
                         partition=partition,
                         log_dir=method_dir,
+                        processed_dir=processed_dir,
                         batch_size_per_device=batch_size_per_device,
                         num_workers=num_workers,
                         accelerator=accelerator,
                         devices=devices,
                         precision=precision,
+                        no_ffcv=no_ffcv,
                         debug=debug,
                     )
                 else:
