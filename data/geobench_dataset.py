@@ -108,7 +108,7 @@ class GeobenchDataset(Dataset):
 
         # normalize each band with its mean and std
         x = (x - mean[:, None, None]) / std[:, None, None]
-        x = torch.from_numpy(x).float()
+        x = x.astype(np.dtype("float32"))
 
         # check if label is an object or a number
         if not (isinstance(label, int) or isinstance(label, list)):
