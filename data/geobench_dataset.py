@@ -75,7 +75,7 @@ class GeobenchDataset(Dataset):
         self.in_channels = len(self.tmp_band_indices)
 
     @staticmethod
-    def get_task(dataset_name: str) -> Tuple[str, TaskSpecifications]:
+    def get_task(dataset_name: str) -> Tuple[TaskSpecifications, str]:
         benchmark_name = GEOBENCH_TASK[dataset_name]
         benchmark_name_ = ""
         if benchmark_name == "classification":
