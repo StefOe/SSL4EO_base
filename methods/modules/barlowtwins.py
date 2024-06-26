@@ -25,7 +25,7 @@ class BarlowTwins(EOModule):
         train_transform: Module,
         last_backbone_channel: int = None,
     ) -> None:
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["train_transform"])
         self.hparams["method"] = self.__class__.__name__
         super().__init__(
             backbone,

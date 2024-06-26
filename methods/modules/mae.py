@@ -38,7 +38,7 @@ class MAE(LightningModule):
         ), f"change of last backbone channel is not supported (given: {last_backbone_channel})"
 
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["train_transform"])
         self.hparams["method"] = self.__class__.__name__
         self.batch_size_per_device = batch_size_per_device
         if backbone == "default":
