@@ -85,7 +85,7 @@ def geobench_clf_eval(
     model_checkpoint = ModelCheckpoint(
         monitor="val_top1", mode="max", auto_insert_metric_name=True
     )
-    epochs = 90 if method == "linear" else 30
+    epochs = (90 if method == "linear" else 30) if not debug else 1
     trainer = Trainer(
         max_epochs=epochs,
         accelerator=accelerator,
