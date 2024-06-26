@@ -320,7 +320,10 @@ def main(
                         dataset_name=dataset_name,
                         partition=partition,
                         log_dir=method_dir,
-                        processed_dir=processed_dir,
+                        # sharing preprocessed folder with mmearth dataset
+                        processed_dir=(
+                            data_dir if processed_dir is None else processed_dir
+                        ),
                         batch_size_per_device=batch_size_per_device,
                         num_workers=num_workers,
                         accelerator=accelerator,
