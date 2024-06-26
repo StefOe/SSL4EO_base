@@ -77,11 +77,13 @@ def test_checkpointing_geobench(args, geobench_dataset: str):
             dataset_name=geobench_dataset,
             partition="default",
             log_dir=args.log_dir,
+            processed_dir=args.log_dir,
             batch_size_per_device=args.batch_size_per_device,
             num_workers=args.num_workers,
             accelerator=args.accelerator,
             devices=args.devices,
             precision=args.precision,
+            no_ffcv=args.no_ffcv,
             debug="long",
         )
 
