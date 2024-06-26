@@ -64,7 +64,7 @@ def geobench_clf_eval(
 
     # if debug use minimal indices
     indices = None
-    if debug:
+    if debug and not no_ffcv:
         indices = [[i for i in range(10)] * 3]
     # init dataloaders
     (train_dataloader, val_dataloader, test_dataloader), task = (

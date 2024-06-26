@@ -65,6 +65,7 @@ def test_geobench_with_methods(args, methods: str, geobench_datasets: list[str])
 def test_checkpointing_geobench(args, geobench_dataset: str):
     args.log_dir.mkdir(exist_ok=True)
     args.methods = ["vicreg"]
+    args.backbone = "resnet18"
     args.target = None
     args.epochs = 0
 
