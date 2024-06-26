@@ -128,19 +128,19 @@ parser.add_argument(
     help="If provided, adds another backbone layer to change output size (default: None).",
 )
 parser.add_argument(
-    "--skip-knn-eval",
+    "--enable-knn-eval",
     action="store_true",
-    help="If set, KNN evaluation will be skipped.",
+    help="If set, offline KNN evaluation will be enabled.",
 )
 parser.add_argument(
-    "--skip-linear-eval",
+    "--enable-linear-eval",
     action="store_true",
-    help="If set, linear evaluation will be skipped.",
+    help="If set, offline linear evaluation will be enabled.",
 )
 parser.add_argument(
-    "--skip-finetune-eval",
+    "--enable-finetune-eval",
     action="store_true",
-    help="If set, fine-tuning evaluation will be skipped.",
+    help="If set, offline fine-tuning evaluation will be enabled.",
 )
 parser.add_argument(
     "--no-ffcv",
@@ -211,9 +211,9 @@ def main(
     input_channel: str,
     target: str,
     last_backbone_channel: int,
-    skip_knn_eval: bool,
-    skip_linear_eval: bool,
-    skip_finetune_eval: bool,
+    enable_knn_eval: bool,
+    enable_linear_eval: bool,
+    enable_finetune_eval: bool,
     geobench_datasets: Union[Sequence[str], None],
     geobench_partitions: Union[Sequence[str], None],
     ckpt_path: Union[Path, None],
@@ -238,11 +238,7 @@ def main(
     if target is None or target.lower() == "none":
         target = None
         target_modality = None
-        if skip_knn_eval or skip_linear_eval or skip_finetune_eval:
-            print_rank_zero(
-                "if no target is set, all offline evaluation will be skipped "
-                "(e.g., add --skip-linear-eval --skip-finetune-eval --skip-knn-eval)"
-            )
+        print_rank_zero("if no target is set, all offline evaluation will be skipped ")
 
     else:
         target_modality = {target: MODALITIES_FULL[target]}
@@ -345,21 +341,21 @@ def main(
 
         eval_config = default_config.copy()
         eval_config["num_classes"] = num_classes
-        if skip_linear_eval:
-            print_rank_zero("Skipping linear eval.")
-        else:
+        if enable_linear_eval and target is not None:
             linear_eval(**eval_config)
-
-        if skip_finetune_eval:
-            print_rank_zero("Skipping fine-tune eval.")
         else:
+            print_rank_zero("Skipping linear eval.")
+
+        if enable_finetune_eval and target is not None:
             finetune_eval(**eval_config)
-
-        if skip_knn_eval:
-            print_rank_zero("Skipping KNN eval.")
         else:
+            print_rank_zero("Skipping fine-tune eval.")
+
+        if enable_knn_eval and target is not None:
             del eval_config["precision"]
             knn_eval(**eval_config)
+        else:
+            print_rank_zero("Skipping KNN eval.")
 
         return model
 

@@ -32,9 +32,9 @@ def args():
     args.last_backbone_channel = None
     args.geobench_datasets = None
     args.geobench_partitions = ["default"]
-    args.skip_knn_eval = False
-    args.skip_linear_eval = False
-    args.skip_finetune_eval = False
+    args.enable_knn_eval = True
+    args.enable_linear_eval = True
+    args.enable_finetune_eval = True
     args.ckpt_path = None
     args.no_ffcv = True
 
