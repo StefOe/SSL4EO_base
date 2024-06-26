@@ -148,7 +148,7 @@ def get_geobench_dataloaders(
     Parameters:
     ----------
     dataset_name : str
-        Dataset name from geobench.
+        The name of the dataset from Geobench.
     processed_dir : Path
         The directory where the processed beton files will be saved.
     num_workers : int
@@ -157,16 +157,17 @@ def get_geobench_dataloaders(
         The batch size for each device during training.
     splits : list[str], optional
         The dataset splits to be used. Default is ["train", "val", "test"].
-    no_ffcv: bool, optional
-        Disables the creation of beton file and return torch Dataloader instead. Default is False.
-    indices: list[list[int]], optional
-        Select indices to use for each split (starting at 0). Default is None, meaning all samples are used. Only with FFCV enabled.
+    partition : str, optional
+        The partition strategy for the dataset. Default is "default".
+    no_ffcv : bool, optional
+        Disables the creation of beton files and returns PyTorch DataLoader instead. Default is False.
+    indices : list[list[int]], optional
+        Select indices to use for each split (starting at 0). Default is None, meaning all samples are used. Only applicable with FFCV enabled.
 
     Returns:
     -------
-    list[Union[ffcv.Loader, torch.utils.data.DataLoader]]
-        A list containing data loaders. Each loader can be either `ffcv.Loader` (for beton files) or `torch.data.DataLoader` (for standard PyTorch datasets).
-
+    Tuple[list[Union[ffcv.Loader, torch.utils.data.DataLoader]], TaskSpecifications]
+        A tuple containing a list of data loaders and task specifications. Each loader can be either `ffcv.Loader` (for beton files) or `torch.utils.data.DataLoader` (for standard PyTorch datasets).
 
     Example Usage:
     --------------
@@ -179,10 +180,10 @@ def get_geobench_dataloaders(
     batch_size_per_device = 32
 
     dataloaders = get_geobench_dataloaders(
-        data_dir,
-        processed_dir,
-        num_workers,
-        batch_size_per_device,
+        dataset_name="dataset_name",
+        processed_dir=processed_dir,
+        num_workers=num_workers,
+        batch_size_per_device=batch_size_per_device,
         splits=["train", "val"]
     )
     ```
@@ -191,9 +192,8 @@ def get_geobench_dataloaders(
     -----
     - The function checks if the processed beton file exists for each split. If it doesn't exist, it processes the data
       and creates the beton file.
-    - The `convert_geobench` function is used to convert the dataset into beton format.
+    - The `convert_geobench_to_beton` function is used to convert the dataset into beton format.
     - The `ffcv.Loader` is used to create the data loaders with appropriate pipelines for training and validation.
-
     """
     if splits is None:
         splits = ["train", "val", "test"]
@@ -305,7 +305,7 @@ def convert_geobench_to_beton(
     indices: list = None,
 ):
     """
-    Converts a GeobenchDataset dataset into a format optimized for a specified machine learning task and writes it to a specified path.
+    Converts a GeobenchDataset into a format optimized for a specified machine learning task and writes it to a specified path.
 
     Parameters:
     ----------
@@ -316,7 +316,7 @@ def convert_geobench_to_beton(
     num_workers : int, optional
         The number of worker threads to use for writing the dataset. A value of -1 indicates that the default number of workers should be used. Default is -1.
     indices : list, optional
-        Indices to select from dataset, good for subset creation.
+        Indices to select from the dataset, useful for subset creation.
 
     Fields:
     ------
@@ -331,7 +331,7 @@ def convert_geobench_to_beton(
     Process:
     -------
     1. Field Initialization:
-        Initializes the fields dictionary with a 'input' field.
+        Initializes the fields dictionary with an 'input' field.
         Adds a 'label' field to the fields dictionary based on the supervised_task.
     2. Dataset Writing:
         Creates a DatasetWriter instance with the specified write_path, fields, and num_workers.
@@ -346,12 +346,18 @@ def convert_geobench_to_beton(
     # Assuming 'my_dataset' is a pre-existing dataset object
     my_dataset = GeobenchDataset(...)  # Replace with actual dataset initialization
 
-    convert_geobench(
+    convert_geobench_to_beton(
         dataset=my_dataset,
         write_path=Path('/path/to/save/dataset'),
         num_workers=4
     )
     ```
+
+    Notes:
+    -----
+    - The `convert_geobench_to_beton` function facilitates the conversion of a GeobenchDataset into a beton format optimized for machine learning tasks.
+    - The function initializes appropriate fields based on the dataset type (classification, multi-label classification, segmentation) and writes the dataset to the specified path.
+    - The `from_indexed_dataset` method of `DatasetWriter` is used to handle the actual writing process.
     """
 
     input_shape = (
