@@ -118,7 +118,7 @@ class GeobenchDataset(Dataset):
         if not (isinstance(label, int) or isinstance(label, list)):
             label = label.data
             # label is a memoryview object, convert it to a list, and then to a numpy array
-            label = np.array(list(label))
+            label = np.array(list(label), dtype=np.dtype("int64"))
 
         if self.transform is not None:
             self.transform(x)
