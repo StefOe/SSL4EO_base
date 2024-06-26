@@ -282,6 +282,12 @@ def get_geobench_dataloaders(
                     ],
                 }
             )
+        pipelines.update(
+            {
+                "mean": [NDArrayDecoder(), ToTensor()],
+                "std": [NDArrayDecoder(), ToTensor()],
+            }
+        )
 
         # Replaces PyTorch data loader (`torch.utils.data.Dataloader`)
         dataloader = ffcv.Loader(
