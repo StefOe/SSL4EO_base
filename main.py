@@ -160,6 +160,11 @@ parser.add_argument(
     help="Amount of GeoBench data to train on (default: 'default').",
 )
 parser.add_argument(
+    "--geobench-eval-method",
+    type=str,
+    help="How to evaluate on gebench, either 'linear' or 'finetune' or 'both'  (default: 'linear').",
+)
+parser.add_argument(
     "--debug",
     action="store_true",
     help="If set, run in debug mode (for code checking).",
@@ -216,25 +221,27 @@ def main(
     enable_finetune_eval: bool,
     geobench_datasets: Union[Sequence[str], None],
     geobench_partitions: Union[Sequence[str], None],
+    geobench_eval_method: str,
     ckpt_path: Union[Path, None],
     no_ffcv: bool,
     debug: bool = False,
 ) -> LightningModule:
     if data_dir is None:
-        data_dir = MMEARTH_DIR
+        data_dir = MMEARTH_DIR  # Use default directory if data_dir is not specified
 
+    # Ensure the data directory exists
     assert data_dir.exists(), (
         f"data folder does not exist: {data_dir}, "
         f"either --data-dir <folder> or set environment variable: export MMEARTH_DIR=<folder>"
     )
 
-    # store the requested channel combination
+    # Retrieve input modality configuration
     input_modality = IN_MODALITIES[input_channel]
 
-    # number depend on which channel combination is chosen
+    # Calculate the number of input channels based on the chosen modality
     in_channels = sum([len(input_modality[k]) for k in input_modality])
 
-    # checking if target is given (if not, no online classifier will be trained)
+    # Check if target is specified; if not, skip online classifier training
     if target is None or target.lower() == "none":
         target = None
         target_modality = None
@@ -244,20 +251,23 @@ def main(
         target_modality = {target: MODALITIES_FULL[target]}
     num_classes = CLASSIFICATION_CLASSES[target]
 
+    # Create log directory if it doesn't exist
     log_dir.mkdir(exist_ok=True)
 
+    # Set high precision for matrix multiplication in PyTorch
     torch.set_float32_matmul_precision("high")
 
-    # if no methods are give, all will be used
+    # Use all methods if none are specified
     method_names = methods or METHODS.keys()
 
     for method in method_names:
+        # Create method-specific log directory
         method_dir = (
             log_dir / method / datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         ).resolve()
         method_dir.mkdir(exist_ok=True, parents=True)
 
-        # init model
+        # Initialize model with method-specific parameters
         model = METHODS[method]["model"](
             backbone=backbone,
             batch_size_per_device=batch_size_per_device,
@@ -268,11 +278,12 @@ def main(
             last_backbone_channel=last_backbone_channel,
         )
 
+        # Compile the model if PyTorch supports it
         if compile_model and hasattr(torch, "compile"):
-            # Compile model if PyTorch supports it.
             print_rank_zero("Compiling model...")
             model = torch.compile(model)
 
+        # Default configuration for training and evaluation
         default_config = {
             "model": model,
             "input_modality": input_modality,
@@ -289,12 +300,14 @@ def main(
             "debug": debug,
         }
 
+        # Skip pretraining if epochs is <= 0
         if epochs <= 0:
             print_rank_zero("Epochs <= 0, skipping pretraining.")
             if ckpt_path is not None:
                 print_rank_zero(f"Loading model weights from {ckpt_path}")
                 model.load_state_dict(torch.load(ckpt_path)["state_dict"])
         else:
+            # Pretraining configuration and execution
             pretrain_config = default_config.copy()
             pretrain_config["epochs"] = epochs
             pretrain_config["ckpt_path"] = ckpt_path
@@ -302,17 +315,24 @@ def main(
             print_rank_zero(f"Running pretraining for {method}...")
             pretrain(**pretrain_config)
 
+        # Skip geobench evaluation if no datasets are specified
         if not geobench_datasets:
             print_rank_zero("Skipping geobench eval.")
         else:
+            # Evaluate on specified geobench datasets, partitions, and evaluation method
             geobench_partitions = geobench_partitions or ["default"]
-            for dataset_name, partition in product(
-                geobench_datasets, geobench_partitions
+            if geobench_eval_method == "both":
+                geobench_eval_methods = ["linear", "finetune"]
+            else:
+                geobench_eval_methods = [geobench_eval_method] # expected to be "linear" or "finetune"
+
+            for dataset_name, partition, eval_method in product(
+                geobench_datasets, geobench_partitions, geobench_eval_methods
             ):
                 if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet"]:
                     geobench_clf_eval(
                         model=model,
-                        method="linear",
+                        method=eval_method,
                         dataset_name=dataset_name,
                         partition=partition,
                         log_dir=method_dir,
@@ -333,6 +353,7 @@ def main(
                         f"Geobench dataset '{dataset_name}' is not implemented."
                     )
 
+        # Skip offline evaluation if no target is specified
         if target is None:
             print_rank_zero(f"Skipping offline eval because no target is selected.")
             return model
@@ -341,16 +362,20 @@ def main(
 
         eval_config = default_config.copy()
         eval_config["num_classes"] = num_classes
+
+        # Perform linear evaluation if enabled
         if enable_linear_eval and target is not None:
             linear_eval(**eval_config)
         else:
             print_rank_zero("Skipping linear eval.")
 
+        # Perform fine-tuning evaluation if enabled
         if enable_finetune_eval and target is not None:
             finetune_eval(**eval_config)
         else:
             print_rank_zero("Skipping fine-tune eval.")
 
+        # Perform KNN evaluation if enabled
         if enable_knn_eval and target is not None:
             del eval_config["precision"]
             knn_eval(**eval_config)
