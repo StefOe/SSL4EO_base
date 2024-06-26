@@ -7,6 +7,7 @@ import pytest
 from data import GeobenchDataset, get_mmearth_dataloaders
 from data import MMEarthDataset, create_MMEearth_args
 from data import constants
+from data.geobench_dataset import get_geobench_dataloaders
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
@@ -63,7 +64,8 @@ def test_mmearth_dataset(split, modalities, target_modalities):
     ],
 )
 @pytest.mark.parametrize(
-    "no_ffcv", [False, True],
+    "no_ffcv",
+    [False, True],
 )
 def test_mmearth_dataloader(modalities, target_modalities, no_ffcv):
     test_out = Path("test_out")
@@ -71,9 +73,15 @@ def test_mmearth_dataloader(modalities, target_modalities, no_ffcv):
 
     try:
         loader = get_mmearth_dataloaders(
-            constants.MMEARTH_DIR, test_out,
-            modalities, target_modalities, 2, 2, ["train"], no_ffcv,
-            indices=None if no_ffcv else [list(range(10))]
+            constants.MMEARTH_DIR,
+            test_out,
+            modalities,
+            target_modalities,
+            2,
+            2,
+            ["train"],
+            no_ffcv,
+            indices=None if no_ffcv else [list(range(10))],
         )
 
         for data in loader:
@@ -81,7 +89,6 @@ def test_mmearth_dataloader(modalities, target_modalities, no_ffcv):
     finally:
         # cleanup
         shutil.rmtree(test_out, ignore_errors=True)
-
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])
@@ -97,22 +104,11 @@ def test_mmearth_dataloader(modalities, target_modalities, no_ffcv):
     ],
 )
 def test_geobench_dataset(split, dataset_name):
-    if dataset_name in ["m-eurosat", "m-so2sat", "m-bigearthnet", "m-brick-kiln"]:
-        dataset = GeobenchDataset(
-            dataset_name=dataset_name,
-            split=split,
-            transform=None,
-            benchmark_name="classification",
-        )
-    elif dataset_name in ["m-cashew-plant", "m-SA-crop-type"]:
-        dataset = GeobenchDataset(
-            dataset_name=dataset_name,
-            split=split,
-            transform=None,
-            benchmark_name="segmentation",
-        )
-    else:
-        raise NotImplementedError
+    dataset = GeobenchDataset(
+        dataset_name=dataset_name,
+        split=split,
+        transform=None,
+    )
 
     assert len(dataset) > 0, f"Dataset '{dataset_name}' should not be empty"
 
@@ -123,3 +119,43 @@ def test_geobench_dataset(split, dataset_name):
     assert (
         n_channel == expected
     ), f"Dataset '{dataset_name}' should have {expected} channels, found {n_channel}"
+
+
+@pytest.mark.parametrize(
+    "dataset_name",
+    [
+        "m-eurosat",
+        "m-so2sat",
+        "m-bigearthnet",
+        "m-brick-kiln",
+        "m-cashew-plant",
+        "m-SA-crop-type",
+    ],
+)
+@pytest.mark.parametrize(
+    "no_ffcv",
+    [False, True],
+)
+def test_geobench_dataloader(dataset_name, no_ffcv):
+    test_out = Path("test_out")
+    test_out.mkdir(exist_ok=True)
+    splits = ["train", "val", "test"]
+    partition = "default"
+
+    try:
+        loader = get_geobench_dataloaders(
+            dataset_name,
+            test_out,
+            2,
+            2,
+            splits,
+            partition,
+            no_ffcv,
+            indices=None if no_ffcv else [list(range(10))],
+        )
+
+        for data in loader:
+            break
+    finally:
+        # cleanup
+        shutil.rmtree(test_out, ignore_errors=True)

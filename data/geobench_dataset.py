@@ -1,25 +1,34 @@
 import json
 from pathlib import Path
-from typing import Tuple, Union
+from typing import Union
 
 import ffcv
 import geobench
 import numpy as np
 import torch
 from ffcv import DatasetWriter
-from ffcv.fields import NDArrayField, IntField, FloatField
+from ffcv.fields import NDArrayField, IntField
 from ffcv.fields.basics import IntDecoder
 from ffcv.fields.ndarray import NDArrayDecoder
 from ffcv.loader import OrderOption
 from ffcv.transforms import ToTensor, Squeeze
+from geobench import MultiLabelClassification
 from lightly.utils.dist import print_rank_zero
 from torch.utils.data import Dataset, DataLoader
 
-from data.constants import MODALITY_TASK, ori_input_size
 from methods.transforms import to_tensor
 
 with open("data/BAND_NAMES.json", "r") as f:
     BAND_NAMES = json.load(f)
+
+GEOBENCH_TASK = {
+    "m-eurosat": "classification",
+    "m-so2sat": "classification",
+    "m-bigearthnet": "classification",
+    "m-brick-kiln": "classification",
+    "m-cashew-plant": "segmentation",
+    "m-SA-crop-type": "segmentation",
+}
 
 
 class GeobenchDataset(Dataset):
@@ -31,14 +40,15 @@ class GeobenchDataset(Dataset):
         split: str = "train",
         transform=None,
         partition: str = "default",
-        benchmark_name: str = "classification",
     ):
         if split == "val":
             split = "valid"
 
-        if benchmark_name == "classification":
+        self.benchmark_name = GEOBENCH_TASK[dataset_name]
+
+        if self.benchmark_name == "classification":
             benchmark_name = "classification_v1.0/"
-        elif benchmark_name == "segmentation":
+        elif self.benchmark_name == "segmentation":
             benchmark_name = "segmentation_v1.0/"
 
         task = None
@@ -68,6 +78,8 @@ class GeobenchDataset(Dataset):
             self.tmp_band_names.index(band_name)
             for band_name in BAND_NAMES[dataset_name]
         ]
+        self.patch_size = task.patch_size
+        self.label_type = task.label_type
 
         self.norm_stats = self.dataset.normalization_stats()
         self.in_channels = len(self.tmp_band_indices)
@@ -113,11 +125,10 @@ class GeobenchDataset(Dataset):
 def get_geobench_dataloaders(
     dataset_name: str,
     processed_dir: Path,
-    input_modality: dict,
-    target_modality: dict,
     num_workers: int,
     batch_size_per_device: int,
     splits: list[str] = None,
+    partition: str = "default",
     no_ffcv: bool = False,
     indices: list[list[int]] = None,
 ) -> list[Union[ffcv.Loader, DataLoader]]:
@@ -131,10 +142,6 @@ def get_geobench_dataloaders(
         Dataset name from geobench.
     processed_dir : Path
         The directory where the processed beton files will be saved.
-    input_modality : dict
-        A dictionary specifying the input modality configurations.
-    target_modality : dict
-        A dictionary specifying the target modality configurations.
     num_workers : int
         The number of worker threads to use for data loading.
     batch_size_per_device : int
@@ -159,16 +166,12 @@ def get_geobench_dataloaders(
 
     data_dir = Path("/path/to/raw/data")
     processed_dir = Path("/path/to/processed/data")
-    input_modality = {...}  # Define your input modality configurations
-    target_modality = {...}  # Define your target modality configurations
     num_workers = 4
     batch_size_per_device = 32
 
     dataloaders = get_geobench_dataloaders(
         data_dir,
         processed_dir,
-        input_modality,
-        target_modality,
         num_workers,
         batch_size_per_device,
         splits=["train", "val"]
@@ -179,7 +182,6 @@ def get_geobench_dataloaders(
     -----
     - The function checks if the processed beton file exists for each split. If it doesn't exist, it processes the data
       and creates the beton file.
-    - The input and target modalities are reverse looked up using `IN_MODALITIES` and `MODALITIES_FULL` respectively.
     - The `convert_geobench` function is used to convert the dataset into beton format.
     - The `ffcv.Loader` is used to create the data loaders with appropriate pipelines for training and validation.
 
@@ -196,22 +198,11 @@ def get_geobench_dataloaders(
 
     processed_dir.mkdir(exist_ok=True)
 
-    # lookup input modality
-    # only one input modality at a time supported TODO
-    input_name = list(input_modality.keys())[0].replace("_", "-")
-
-    # reverse lookup target modality
-    if target_modality is None:
-        target_name = ""
-    else:
-        # only one task supported TODO
-        target_name = list(target_modality.keys())[0].replace("_", "-")
-
     dataloaders = []
     for i, split in enumerate(splits):
         is_train = split == "train"
         subset = "" if indices is None else "_subset"
-        beton_file = processed_dir / f"{split}_{input_name}_{target_name}{subset}.beton"
+        beton_file = processed_dir / f"{split}_{dataset_name}{subset}.beton"
 
         if not beton_file.exists() or no_ffcv:
             if not no_ffcv:
@@ -222,8 +213,10 @@ def get_geobench_dataloaders(
             else:
                 transform = to_tensor
             dataset = GeobenchDataset(
-                dataset_name=dataset_name, split=split, transform=transform, partition=partition,
-                benchmark_name=benchmark_name
+                dataset_name=dataset_name,
+                split=split,
+                transform=transform,
+                partition=partition,
             )
 
             if len(dataset) == 0:
@@ -246,17 +239,11 @@ def get_geobench_dataloaders(
                 dataloaders.append(dataloader)
                 continue
             else:
-                input_shape = (
-                    sum([len(input_modality[k]) for k in input_modality]),
-                    ori_input_size,
-                    ori_input_size,
-                )
                 idx = None if indices is None else indices[i]
                 convert_geobench_to_beton(
                     dataset,
                     beton_file,
                     num_workers=num_workers,
-                    input_shape=input_shape,
                     indices=idx,
                 )
 
@@ -266,7 +253,7 @@ def get_geobench_dataloaders(
             "input": [NDArrayDecoder(), ToTensor()],
         }
 
-        if target_modality is not None:
+        if dataset is not None:
             pipelines.update(
                 {
                     "label": [
@@ -295,7 +282,6 @@ def get_geobench_dataloaders(
 def convert_geobench_to_beton(
     dataset: GeobenchDataset,
     write_path: Path,
-    input_shape: Tuple[int, int, int],
     num_workers: int = -1,
     indices: list = None,
 ):
@@ -308,8 +294,6 @@ def convert_geobench_to_beton(
         The dataset to be converted and written. It should be compatible with the DatasetWriter's from_indexed_dataset method.
     write_path : Path
         The file path where the transformed dataset will be written.
-    input_shape : Tuple[int, int, int], optional
-        The shape of the input data, used to define the shape of the sentinel2 and label fields when applicable. Default is (12, 128, 128).
     num_workers : int, optional
         The number of worker threads to use for writing the dataset. A value of -1 indicates that the default number of workers should be used. Default is -1.
     indices : list, optional
@@ -321,16 +305,15 @@ def convert_geobench_to_beton(
         A field for storing input data with a specified shape and data type float32.
     label : IntField or FloatField or NDArrayField
         A field for storing labels, the type of which depends on the supervised_task parameter:
-            - IntField for classification.
-            - NDArrayField(dtype=np.dtype("float32"), shape=(c)) for regression.
+            - IntField for multi-class classification.
+            - NDArrayField(dtype=np.dtype("int64"), shape=(c)) for multi-label classification.
             - NDArrayField(dtype=np.dtype("int64"), shape=(c, input_shape[1], input_shape[2])) for segmentation.
-            - NDArrayField(dtype=np.dtype("float32"), shape=(c, input_shape[1], input_shape[2])) for regression map.
 
     Process:
     -------
     1. Field Initialization:
-        Initializes the fields dictionary with a sentinel2 field.
-        Adds a label field to the fields dictionary based on the supervised_task.
+        Initializes the fields dictionary with a 'input' field.
+        Adds a 'label' field to the fields dictionary based on the supervised_task.
     2. Dataset Writing:
         Creates a DatasetWriter instance with the specified write_path, fields, and num_workers.
         Writes the dataset using the from_indexed_dataset method of the DatasetWriter.
@@ -347,62 +330,42 @@ def convert_geobench_to_beton(
     convert_geobench(
         dataset=my_dataset,
         write_path=Path('/path/to/save/dataset'),
-        input_shape=(12, 128, 128),
         num_workers=4
     )
     ```
     """
+
+    input_shape = (
+        dataset.in_channels,
+        *dataset.patch_size,
+    )
 
     fields = {
         # Tune options to optimize dataset size, throughput at train-time
         "input": NDArrayField(dtype=np.dtype("float32"), shape=input_shape),
     }
 
-    # if more than 1 modality is selected, we expect the second one to be the supervised task
-    if len(dataset.modalities) >= 2:
-        # only supporting single task here, so check the task and prepare fiel accordingly
-        assert (
-            len(dataset.modalities) == 2
-        ), f"only two modalities should be returned, got: {dataset.modalities.keys()}"
-        target_name, targets = [
-            (k, v) for k, v in dataset.modalities.items() if k != "sentinel2"
-        ][0]
-        c = len(targets)  # number targets
-        supervised_task = MODALITY_TASK[target_name]
+    # check if this is a multi label dataset
+    if isinstance(dataset.label_type, MultiLabelClassification):
+        c = dataset.num_classes  # number target tasks
+    else:
+        c = 1  # in Multiclass classification only one output exists
 
-        if supervised_task == "classification":
-            if c == 1:
-                fields.update({"label": IntField()})
-            else:
-                fields.update(
-                    {"label": NDArrayField(dtype=np.dtype("int64"), shape=(c,))}
-                )
+    if dataset.benchmark_name == "classification":
+        if c == 1:
+            fields.update({"label": IntField()})
+        else:
+            fields.update({"label": NDArrayField(dtype=np.dtype("int64"), shape=(c,))})
 
-        elif supervised_task == "segmentation":
-            fields.update(
-                {
-                    "label": NDArrayField(
-                        dtype=np.dtype("int64"),
-                        shape=(c, input_shape[1], input_shape[2]),
-                    )
-                }
-            )
-        elif supervised_task == "regression":
-            if c == 1:
-                fields.update({"label": FloatField()})
-            else:
-                fields.update(
-                    {"label": NDArrayField(dtype=np.dtype("float32"), shape=(c,))}
+    elif dataset.benchmark_name == "segmentation":
+        fields.update(
+            {
+                "label": NDArrayField(
+                    dtype=np.dtype("int64"),
+                    shape=(c, input_shape[1], input_shape[2]),
                 )
-        elif supervised_task == "regression_map":
-            fields.update(
-                {
-                    "label": NDArrayField(
-                        dtype=np.dtype("float32"),
-                        shape=(c, input_shape[1], input_shape[2]),
-                    )
-                }
-            )
+            }
+        )
 
     # Pass a type for each data field
     writer = DatasetWriter(write_path, fields, num_workers=num_workers)

@@ -8,9 +8,8 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from torch.nn import Module, Sequential
-from torch.utils.data import DataLoader
 
-from data import GeobenchDataset
+from data.geobench_dataset import get_geobench_dataloaders
 from eval.helper_modules import (
     LinearMultiLabelClassifier,
     FinetuneMultiLabelClassifier,
@@ -23,6 +22,7 @@ def geobench_clf_eval(
     model: Module,
     dataset_name: str,
     partition: str,
+    processed_dir: Path,
     method: str,  # "either finetune or linear
     log_dir: Path,
     batch_size_per_device: int,
@@ -30,6 +30,7 @@ def geobench_clf_eval(
     accelerator: str,
     devices: int,
     precision: str,
+    no_ffcv: bool,
     debug: [bool, str] = False,
 ) -> None:
     """Runs a linear evaluation on the given model.
@@ -56,38 +57,21 @@ def geobench_clf_eval(
     print_rank_zero("Running geobench evaluation...")
 
     # Setup training data.
-
     train_transform = Sequential(
         K.RandomHorizontalFlip(),
         K.RandomVerticalFlip(),
     )
-    train_dataset = GeobenchDataset(
-        dataset_name=dataset_name,
-        split="train",
-        partition=partition,
-        benchmark_name="classification",
-    )
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=batch_size_per_device,
-        shuffle=True,
-        num_workers=num_workers,
-        drop_last=True,
+
+    train_dataloader, val_dataloader, test_dataloader = get_geobench_dataloaders(
+        dataset_name,
+        processed_dir,
+        num_workers,
+        batch_size_per_device,
+        ["train", "val", "test"],
+        partition,
+        no_ffcv,
     )
 
-    # Setup validation data.
-    val_dataset = GeobenchDataset(
-        dataset_name=dataset_name,
-        split="val",
-        benchmark_name="classification",
-    )
-    val_dataloader = DataLoader(
-        val_dataset,
-        batch_size=batch_size_per_device,
-        shuffle=False,
-        num_workers=num_workers,
-        drop_last=False,
-    )
     # Train linear classifier.
     metric_callback = MetricCallback()
     model_checkpoint = ModelCheckpoint(
@@ -145,20 +129,6 @@ def geobench_clf_eval(
         )
 
     # get test results for best val model
-    test_dataset = GeobenchDataset(
-        dataset_name=dataset_name,
-        split="test",
-        transform=None,
-        benchmark_name="classification",
-    )
-    test_dataloader = DataLoader(
-        test_dataset,
-        batch_size=batch_size_per_device,
-        shuffle=False,
-        num_workers=num_workers,
-        drop_last=False,
-    )
-
     best_model_path = (
         model_checkpoint.best_model_path
         if model_checkpoint.best_model_path != ""
