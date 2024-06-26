@@ -367,6 +367,19 @@ def convert_geobench_to_beton(
             }
         )
 
+    fields.update(
+        {
+            "mean": NDArrayField(
+                dtype=np.dtype("float32"),
+                shape=(input_shape[0], ),
+            ),
+            "std": NDArrayField(
+                dtype=np.dtype("float32"),
+                shape=(input_shape[0], ),
+            )
+        }
+    )
+
     # Pass a type for each data field
     writer = DatasetWriter(write_path, fields, num_workers=num_workers)
 
