@@ -151,7 +151,7 @@ def test_geobench_dataloader(dataset_name, no_ffcv):
             splits,
             partition,
             no_ffcv,
-            indices=None if no_ffcv else [list(range(10))],
+            indices=None if no_ffcv else [list(range(10)), list(range(10)), list(range(10))],
         )
 
         for data in loader:
