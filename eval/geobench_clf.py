@@ -53,7 +53,7 @@ def geobench_clf_eval(
         "m-eurosat",
         "m-so2sat",
         "m-bigearthnet",
-    ], f"dataset '{dataset_name}' not supported" # only classification TODO
+    ], f"dataset '{dataset_name}' not supported"  # only classification TODO
     print_rank_zero("Running geobench evaluation...")
 
     # Setup training data.
@@ -62,14 +62,22 @@ def geobench_clf_eval(
         K.RandomVerticalFlip(),
     )
 
-    (train_dataloader, val_dataloader, test_dataloader), task = get_geobench_dataloaders(
-        dataset_name,
-        processed_dir,
-        num_workers,
-        batch_size_per_device,
-        ["train", "val", "test"],
-        partition,
-        no_ffcv,
+    # if debug use minimal indices
+    indices = None
+    if debug:
+        indices = [[i for i in range(10)] * 3]
+    # init dataloaders
+    (train_dataloader, val_dataloader, test_dataloader), task = (
+        get_geobench_dataloaders(
+            dataset_name,
+            processed_dir,
+            num_workers,
+            batch_size_per_device,
+            ["train", "val", "test"],
+            partition,
+            no_ffcv,
+            indices,
+        )
     )
 
     # Train linear classifier.
