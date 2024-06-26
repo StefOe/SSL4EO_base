@@ -11,7 +11,7 @@ from ffcv.fields.basics import IntDecoder
 from ffcv.fields.ndarray import NDArrayDecoder
 from ffcv.loader import OrderOption
 from ffcv.transforms import ToTensor, Squeeze
-from geobench import MultiLabelClassification, TaskSpecifications, SemanticSegmentation
+from geobench import MultiLabelClassification, TaskSpecifications, SemanticSegmentation, SegmentationClasses
 from lightly.utils.dist import print_rank_zero
 from torch.utils.data import Dataset, DataLoader
 
@@ -263,7 +263,7 @@ def get_geobench_dataloaders(
             "input": [NDArrayDecoder(), ToTensor()],
         }
         # get correct decoder for task
-        if isinstance(task, (MultiLabelClassification, SemanticSegmentation)):
+        if isinstance(task.label_type, (MultiLabelClassification, SemanticSegmentation, SegmentationClasses)):
             pipelines.update(
                 {
                     "label": [
