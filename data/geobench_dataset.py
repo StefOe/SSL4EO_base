@@ -1,18 +1,17 @@
 import json
 from pathlib import Path
-from typing import Union
+from typing import Union, Tuple
 
 import ffcv
 import geobench
 import numpy as np
-import torch
 from ffcv import DatasetWriter
 from ffcv.fields import NDArrayField, IntField
 from ffcv.fields.basics import IntDecoder
 from ffcv.fields.ndarray import NDArrayDecoder
 from ffcv.loader import OrderOption
 from ffcv.transforms import ToTensor, Squeeze
-from geobench import MultiLabelClassification
+from geobench import MultiLabelClassification, TaskSpecifications, SemanticSegmentation
 from lightly.utils.dist import print_rank_zero
 from torch.utils.data import Dataset, DataLoader
 
@@ -44,18 +43,9 @@ class GeobenchDataset(Dataset):
         if split == "val":
             split = "valid"
 
-        self.benchmark_name = GEOBENCH_TASK[dataset_name]
+        task, benchmark_name = self.get_task(dataset_name)
 
-        if self.benchmark_name == "classification":
-            benchmark_name = "classification_v1.0/"
-        elif self.benchmark_name == "segmentation":
-            benchmark_name = "segmentation_v1.0/"
-
-        task = None
-        for task_ in geobench.task_iterator(benchmark_name=benchmark_name):
-            if task_.dataset_name == dataset_name:
-                task = task_
-        assert task is not None, f"couldn't find {dataset_name} in {benchmark_name}"
+        self.benchmark_name = benchmark_name
         self.transform = transform
         self.dataset_name = dataset_name
         self.dataset = task.get_dataset(
@@ -83,6 +73,21 @@ class GeobenchDataset(Dataset):
 
         self.norm_stats = self.dataset.normalization_stats()
         self.in_channels = len(self.tmp_band_indices)
+
+    @staticmethod
+    def get_task(dataset_name: str) -> Tuple[str, TaskSpecifications]:
+        benchmark_name = GEOBENCH_TASK[dataset_name]
+        benchmark_name_ = ""
+        if benchmark_name == "classification":
+            benchmark_name_ = "classification_v1.0/"
+        elif benchmark_name == "segmentation":
+            benchmark_name_ = "segmentation_v1.0/"
+        task = None
+        for task_ in geobench.task_iterator(benchmark_name=benchmark_name_):
+            if task_.dataset_name == dataset_name:
+                task = task_
+        assert task is not None, f"couldn't find {dataset_name} in {benchmark_name_}"
+        return task, benchmark_name
 
     def __len__(self):
         return len(self.dataset)
@@ -135,7 +140,7 @@ def get_geobench_dataloaders(
     partition: str = "default",
     no_ffcv: bool = False,
     indices: list[list[int]] = None,
-) -> list[Union[ffcv.Loader, DataLoader]]:
+) -> Tuple[list[Union[ffcv.Loader, DataLoader]], TaskSpecifications]:
     """
     Creates and returns data loaders for the GeobenchDataset dataset. If the processed beton file does not exist,
     it processes the data and creates the beton file, then returns FFCV data loaders.
@@ -203,6 +208,7 @@ def get_geobench_dataloaders(
     processed_dir.mkdir(exist_ok=True)
 
     dataloaders = []
+    task, _ = GeobenchDataset.get_task(dataset_name)
     for i, split in enumerate(splits):
         is_train = split == "train"
         subset = "" if indices is None else "_subset"
@@ -256,15 +262,24 @@ def get_geobench_dataloaders(
         pipelines = {
             "input": [NDArrayDecoder(), ToTensor()],
         }
-
-        if dataset is not None:
+        # get correct decoder for task
+        if isinstance(task, (MultiLabelClassification, SemanticSegmentation)):
+            pipelines.update(
+                {
+                    "label": [
+                        NDArrayDecoder(),
+                        ToTensor(),
+                    ],
+                }
+            )
+        else:
             pipelines.update(
                 {
                     "label": [
                         IntDecoder(),
                         ToTensor(),
                         Squeeze([1]),
-                    ],  # this will only work for classification TODO
+                    ],
                 }
             )
 
@@ -280,7 +295,7 @@ def get_geobench_dataloaders(
 
         dataloaders.append(dataloader)
 
-    return dataloaders
+    return dataloaders, task
 
 
 def convert_geobench_to_beton(
@@ -375,12 +390,12 @@ def convert_geobench_to_beton(
         {
             "mean": NDArrayField(
                 dtype=np.dtype("float32"),
-                shape=(input_shape[0], ),
+                shape=(input_shape[0],),
             ),
             "std": NDArrayField(
                 dtype=np.dtype("float32"),
-                shape=(input_shape[0], ),
-            )
+                shape=(input_shape[0],),
+            ),
         }
     )
 

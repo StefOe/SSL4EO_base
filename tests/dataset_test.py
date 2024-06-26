@@ -143,7 +143,7 @@ def test_geobench_dataloader(dataset_name, no_ffcv):
     partition = "default"
 
     try:
-        loader = get_geobench_dataloaders(
+        loaders, task = get_geobench_dataloaders(
             dataset_name,
             test_out,
             2,
@@ -153,9 +153,9 @@ def test_geobench_dataloader(dataset_name, no_ffcv):
             no_ffcv,
             indices=None if no_ffcv else [list(range(10)), list(range(10)), list(range(10))],
         )
-
-        for data in loader:
-            break
+        for loader in loaders:
+            for data in loader:
+                break
     finally:
         # cleanup
         shutil.rmtree(test_out, ignore_errors=True)

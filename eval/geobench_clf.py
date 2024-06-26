@@ -62,7 +62,7 @@ def geobench_clf_eval(
         K.RandomVerticalFlip(),
     )
 
-    train_dataloader, val_dataloader, test_dataloader = get_geobench_dataloaders(
+    (train_dataloader, val_dataloader, test_dataloader), task = get_geobench_dataloaders(
         dataset_name,
         processed_dir,
         num_workers,
@@ -109,7 +109,7 @@ def geobench_clf_eval(
         model,
         method,
         is_multi_label=dataset_name == "m-bigearthnet",
-        num_classes=train_dataset.num_classes,
+        num_classes=task.label_type.n_classes,
         batch_size_per_device=batch_size_per_device,
         train_transform=train_transform,
     )
