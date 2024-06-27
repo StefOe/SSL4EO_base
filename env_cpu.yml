@@ -28,6 +28,8 @@ dependencies:
   - pkg-config
   - libjpeg-turbo
   - opencv
+  - ipykernel
+  - jupyterlab
   - pip
   - pip:
       - pytest
