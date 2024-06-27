@@ -19,7 +19,7 @@ We assume that you have a NVIDIA GPU available.
 
 ## Deic setup
 
-Follow the _[SSL4EO Mini-Projects instructions](https://docs.google.com/document/d/1E4yG7y6fgcgvodaDsTtrts-Aiw2nb32s8Tb3S-w4C38/edit?usp=sharing) - Compute access on DEIC_ to start get DeiC resources. Once you have access to DeiC - course resources and started a container follow the following instructions: 
+Follow the _[SSL4EO Mini-Projects instructions - Compute access on DEIC](https://docs.google.com/document/d/1E4yG7y6fgcgvodaDsTtrts-Aiw2nb32s8Tb3S-w4C38/edit?usp=sharing)_ to get started with DeiC. Once you have access to DeiC - course resources and started a container and run the following. It will install and prepare your conda env in ~10 mins: 
 
 1. Run `bash deic_init.sh`
 
