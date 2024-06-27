@@ -192,7 +192,8 @@ class MMEarthDataset(Dataset):
 
 def get_single_glob_file(data_root: Path, pattern) -> Path:
     file = [f for f in data_root.glob(pattern)]
-    assert len(file) == 1, f"too many {pattern} files at {data_root}"
+    assert len(file) < 2, f"too many {pattern} files at {data_root}"
+    assert len(file) > 0, f"no {pattern} files at {data_root}"
     return file[0]
 
 
