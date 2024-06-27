@@ -1,6 +1,9 @@
-# SSL4EO
 
+<p align="right"><img src="ssl4eo-logo.png" width="150"/></p>
+
+# SSL4EO  
 Code base for the course: Self-Supervised Learning for Earth Observation
+
 
 ## Setup
 
