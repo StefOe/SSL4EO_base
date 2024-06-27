@@ -4,12 +4,14 @@ from pathlib import Path
 import pytest
 
 from data import constants
-from data.constants import MMEARTH_DIR
-from data.mmearth_dataset import MMEarthDataset, create_MMEearth_args, get_mmearth_dataloaders
+from data.constants import MMEARTH_DIR, input_size
+from data.mmearth_dataset import (
+    MMEarthDataset,
+    create_MMEearth_args,
+    get_mmearth_dataloaders,
+)
 from methods import transforms
 import torch
-
-input_size = 112
 
 
 @pytest.mark.parametrize(
@@ -43,6 +45,7 @@ def test_augmentations(transform):
             if i >= num_samples:
                 break
 
+
 @pytest.mark.parametrize(
     "transform",
     [
@@ -60,7 +63,8 @@ def test_augmentations(transform):
     ],
 )
 @pytest.mark.parametrize(
-    "no_ffcv", [False, True],
+    "no_ffcv",
+    [False, True],
 )
 def test_augmentation_dataloader(transform, no_ffcv):
     modalities = constants.INP_MODALITIES
@@ -71,15 +75,22 @@ def test_augmentation_dataloader(transform, no_ffcv):
 
     try:
         loader = get_mmearth_dataloaders(
-            constants.MMEARTH_DIR, test_out,
-            modalities, target_modality, 1, 10, ["train"], no_ffcv,
-            indices=[[i for i in range(30)]] if not no_ffcv else None
+            constants.MMEARTH_DIR,
+            test_out,
+            modalities,
+            target_modality,
+            1,
+            10,
+            ["train"],
+            no_ffcv,
+            indices=[[i for i in range(30)]] if not no_ffcv else None,
         )[0]
 
         num_batches = 3
         for b_i, data in enumerate(loader):
             transform(data[0])
-            if b_i >= num_batches: break
+            if b_i >= num_batches:
+                break
     finally:
         # cleanup
         shutil.rmtree(test_out, ignore_errors=True)
