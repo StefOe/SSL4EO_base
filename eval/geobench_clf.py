@@ -86,6 +86,8 @@ def geobench_clf_eval(
         monitor="val_top1", mode="max", auto_insert_metric_name=True
     )
     epochs = (90 if method == "linear" else 30) if not debug else 1
+    wandb_config = model.hparams.copy()
+    wandb_config["log_dir"] = str(log_dir)
     trainer = Trainer(
         max_epochs=epochs,
         accelerator=accelerator,
@@ -100,7 +102,7 @@ def geobench_clf_eval(
             name=f"{dataset_name}_{method}_eval",
             project="ssl4eo",
             # log model config
-            config=model.hparams,
+            config=wandb_config,
             offline=debug,
         ),
         precision=precision,
