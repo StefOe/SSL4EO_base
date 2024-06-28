@@ -161,7 +161,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--geobench-eval-method",
-    type=str,
+    type=str, default="linear",
     help="How to evaluate on gebench, either 'linear' or 'finetune' or 'both'  (default: 'linear').",
 )
 parser.add_argument(
