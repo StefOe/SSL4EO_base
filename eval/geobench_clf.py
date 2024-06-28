@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from torch.nn import Module, Sequential
 
-from data.geobench_dataset import get_geobench_dataloaders
+from data import get_geobench_dataloaders
 from eval.helper_modules import (
     LinearMultiLabelClassifier,
     FinetuneMultiLabelClassifier,

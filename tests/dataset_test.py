@@ -6,8 +6,7 @@ import pytest
 
 from data import GeobenchDataset, get_mmearth_dataloaders
 from data import MMEarthDataset, create_MMEearth_args
-from data import constants
-from data.geobench_dataset import get_geobench_dataloaders
+from data import constants, get_geobench_dataloaders
 
 
 @pytest.mark.parametrize("split", ["train", "val", "test"])

@@ -1,4 +1,4 @@
-from .geobench_dataset import GeobenchDataset
+from .geobench_dataset import GeobenchDataset, get_geobench_dataloaders
 from .mmearth_dataset import (
     get_mmearth_dataloaders,
     MMEarthDataset,
@@ -10,4 +10,5 @@ __all__ = [
     "get_mmearth_dataloaders",
     "create_MMEearth_args",
     "GeobenchDataset",
+    "get_geobench_dataloaders"
 ]
