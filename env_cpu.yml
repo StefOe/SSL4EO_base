@@ -30,6 +30,7 @@ dependencies:
   - opencv
   - ipykernel
   - jupyterlab
+  - geopandas
   - pip
   - pip:
       - pytest
@@ -39,3 +40,4 @@ dependencies:
       - black
       - ffcv
       - kornia
+      - contextily
