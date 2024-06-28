@@ -435,7 +435,7 @@ def pretrain(
             name=f"pretrain",
             project="ssl4eo",
             # log model config
-            config=model.hparams,
+            config=wandb_config,
             offline=debug,
         ),
         precision=precision,
