@@ -31,7 +31,7 @@ from pathlib import Path
 
 _MMEARTH_DIR_ENV = os.environ.get("MMEARTH_DIR", None)
 
-MMEARTH_DIR = Path("./datasets/data_1k")
+MMEARTH_DIR = Path("/work/data/MMEARTH100K")
 if _MMEARTH_DIR_ENV is not None:
     MMEARTH_DIR = Path(_MMEARTH_DIR_ENV)
 
