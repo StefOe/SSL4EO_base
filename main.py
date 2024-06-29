@@ -169,6 +169,13 @@ parser.add_argument(
     help="How to evaluate on GeoBench, either 'linear' or 'finetune' or 'both'  (default: 'linear').",
 )
 parser.add_argument(
+    "--geobench-processed-dir",
+    type=Path,
+    default=None,
+    help="Path to the processed geobench dataset folder (default: None). "
+    "If not given the processed_dir will be used",
+)
+parser.add_argument(
     "--debug",
     action="store_true",
     help="If set, run in debug mode (for code checking).",
@@ -225,6 +232,7 @@ def main(
     enable_finetune_eval: bool,
     geobench_datasets: Union[Sequence[str], None],
     geobench_partitions: Union[Sequence[str], None],
+    geobench_processed_dir: Path,
     geobench_eval_method: str,
     ckpt_path: Union[Path, None],
     no_ffcv: bool,
@@ -332,6 +340,10 @@ def main(
                     geobench_eval_method
                 ]  # expected to be "linear" or "finetune"
 
+            # use processed dir if geobench_processed_dir is not defined, else use data_dir
+            geobench_processed_dir = processed_dir if geobench_processed_dir is None else geobench_processed_dir
+            geobench_processed_dir = data_dir if geobench_processed_dir is None else geobench_processed_dir
+
             for dataset_name, partition, eval_method in product(
                 geobench_datasets, geobench_partitions, geobench_eval_methods
             ):
@@ -342,10 +354,7 @@ def main(
                         dataset_name=dataset_name,
                         partition=partition,
                         log_dir=method_dir,
-                        # sharing preprocessed folder with mmearth dataset
-                        processed_dir=(
-                            data_dir if processed_dir is None else processed_dir
-                        ),
+                        processed_dir=geobench_processed_dir,
                         batch_size_per_device=batch_size_per_device,
                         num_workers=num_workers,
                         accelerator=accelerator,

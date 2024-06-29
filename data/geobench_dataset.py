@@ -212,7 +212,7 @@ def get_geobench_dataloaders(
     for i, split in enumerate(splits):
         is_train = split == "train"
         subset = "" if indices is None else "_subset"
-        beton_file = processed_dir / f"{split}_{dataset_name}{subset}.beton"
+        beton_file = processed_dir / f"{split}_{dataset_name}_{partition}{subset}.beton"
 
         if not beton_file.exists() or no_ffcv:
             if not no_ffcv:
