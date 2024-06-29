@@ -145,24 +145,28 @@ parser.add_argument(
 parser.add_argument(
     "--no-ffcv",
     action="store_true",
-    help="If set, pretraining will be done with regular pytorch DataLoader instead of ffcv.Loader (should be slow).",
+    help="If set, pretraining will be done with regular pytorch DataLoader instead of ffcv.Loader (should be slower).",
 )
 parser.add_argument(
     "--geobench-datasets",
     type=str,
     nargs="+",
-    help="GeoBench datasets for classification: 'm-eurosat', 'm-so2sat', 'm-bigearthnet'; for segmentation: 'm-cashew-plant', 'm-SA-crop-type'.",
+    help="GeoBench datasets for classification: 'm-eurosat', 'm-so2sat', 'm-bigearthnet'; "
+    "for segmentation: 'm-cashew-plant', 'm-SA-crop-type'.",
 )
 parser.add_argument(
     "--geobench-partitions",
     type=str,
     nargs="+",
-    help="Amount of GeoBench data to train on (default: 'default').",
+    help="Amount of GeoBench data to train on. "
+    'Available: "default", "0.01x_train", "0.02x_train", "0.05x_train", "0.10x_train", '
+    '"0.20x_train", "0.50x_train", "1.00x_train" (default: "default").',
 )
 parser.add_argument(
     "--geobench-eval-method",
-    type=str, default="linear",
-    help="How to evaluate on gebench, either 'linear' or 'finetune' or 'both'  (default: 'linear').",
+    type=str,
+    default="linear",
+    help="How to evaluate on GeoBench, either 'linear' or 'finetune' or 'both'  (default: 'linear').",
 )
 parser.add_argument(
     "--debug",
@@ -324,7 +328,9 @@ def main(
             if geobench_eval_method == "both":
                 geobench_eval_methods = ["linear", "finetune"]
             else:
-                geobench_eval_methods = [geobench_eval_method] # expected to be "linear" or "finetune"
+                geobench_eval_methods = [
+                    geobench_eval_method
+                ]  # expected to be "linear" or "finetune"
 
             for dataset_name, partition, eval_method in product(
                 geobench_datasets, geobench_partitions, geobench_eval_methods
