@@ -5,17 +5,20 @@ eval "$(conda shell.bash hook)"
 # Check if dir /work/cenv/ssl4eo exists; create conda env if not
 if [ -d "/work/project/cenv/ssl4eo" ]; then
     export CONDA_ENVS_DIRS="/work/project/cenv/"
+    echo  'export CONDA_ENVS_DIRS="/work/project/cenv/"' >> ~/.bashrc
+    mamba env config vars set MMEARTH_DIR=/work/data/MMEARTH100K/ GEO_BENCH_DIR=/work/data/geobench -n ssl4eo
 else
     echo "Creating conda environment"
     mamba env create --prefix /work/project/cenv/ssl4eo -f /work/data/env.yml
     export CONDA_ENVS_DIRS="/work/project/cenv/"
+    echo  'export CONDA_ENVS_DIRS="/work/project/cenv/"' >> ~/.bashrc
     # Set environment variables ensuring that env vars are always set when activating env
     mamba env config vars set MMEARTH_DIR=/work/data/MMEARTH100K/ GEO_BENCH_DIR=/work/data/geobench -n ssl4eo
 
 fi
-# Export new python kernel
-/work/project/cenv/ssl4eo/bin/python -m ipykernel install --user --name ipy39 --display-name "SSL4EO"
+mamba init
+source ~/.bashrc
+mamba activate ssl4eo
 
-# Set environment variables
-export MMEARTH_DIR=/work/data/MMEARTH100K/
-export GEO_BENCH_DIR=/work/data/geobench
+# Export new python kernel
+python -m ipykernel install --user --name ipy39 --display-name "SSL4EO"
